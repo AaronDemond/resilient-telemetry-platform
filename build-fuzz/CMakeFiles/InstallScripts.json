@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/19024/telemetry_project/build-fuzz/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/src/core/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/src/adapters/nats/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/src/adapters/postgres/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/apps/ingestor/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/apps/operations_api/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/cpp/apps/replay_tool/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/build-fuzz/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

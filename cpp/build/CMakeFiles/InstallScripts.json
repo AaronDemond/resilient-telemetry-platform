@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/19024/telemetry_project/cpp/build/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/src/core/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/src/adapters/nats/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/src/adapters/postgres/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/apps/ingestor/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/apps/operations-api/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/apps/replay-tool/cmake_install.cmake",
+		"C:/Users/19024/telemetry_project/cpp/build/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
