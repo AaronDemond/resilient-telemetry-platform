@@ -8,3 +8,5 @@ target_link_libraries(ingestor
         telemetry::nats_adapter
         telemetry::postgres_adapter
 )
+
+telemetry_enable_instrumentation(ingestor)

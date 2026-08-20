@@ -1,0 +1,20 @@
+# Generated build outputs
+build/
+build-fuzz/
+**/build/
+**/vcpkg_installed/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/compile_commands.json
+**/Testing/
+**/*.ninja
+
+# Local scratch / logs
+output.md
+*.log
+*.tmp
+*.swp
+*.*~
+
+# Editor metadata
+.vscode/

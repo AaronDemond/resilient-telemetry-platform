@@ -7,3 +7,5 @@ target_link_libraries(replay_tool
         telemetry::core
         telemetry::postgres_adapter
 )
+
+telemetry_enable_instrumentation(replay_tool)
