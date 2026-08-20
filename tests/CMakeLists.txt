@@ -1,3 +1,5 @@
+add_custom_target(telemetry_tests)
+
 function(telemetry_register_discovered_tests test_root)
     file(GLOB_RECURSE discovered_test_sources CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/${test_root}/*_test.cpp"
@@ -20,9 +22,13 @@ function(telemetry_register_discovered_tests test_root)
                 telemetry::core
         )
         telemetry_enable_instrumentation(${test_target})
+        add_dependencies(telemetry_tests ${test_target})
 
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             add_test(NAME ${test_target} COMMAND ${test_target})
+            set_tests_properties(${test_target} PROPERTIES
+                FIXTURES_REQUIRED telemetry_test_binaries
+            )
         endif()
     endforeach()
 endfunction()
@@ -30,6 +36,16 @@ endfunction()
 telemetry_register_discovered_tests(unit)
 telemetry_register_discovered_tests(integration)
 telemetry_register_discovered_tests(system)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_test(
+        NAME telemetry_build_tests
+        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target telemetry_tests
+    )
+    set_tests_properties(telemetry_build_tests PROPERTIES
+        FIXTURES_SETUP telemetry_test_binaries
+    )
+endif()
 
 option(TELEMETRY_BUILD_FUZZERS "Build libfuzer targets" OFF)
 
