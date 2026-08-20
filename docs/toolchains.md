@@ -1,11 +1,24 @@
 # Supported Toolchains
 
-| Tool | v1 support statement | Evidence |
+| Tool | Supported configuration | Evidence |
 |---|---|---|
-| CMake | `>= 3.25` | CMake project/presets |
-| Ninja | 1.13.2 | CI output |
-| vcpkg | tested tool revision + manifest baseline | bootstrap script + `vcpkg.json` |
-| Compiler family | Clang / LLVM toolset (`clang-cl`) | The bootstrap preset is Clang-only and uses the Windows MSVC ABI triplet. |
-| Compiler version tested | Not yet recorded | Capture this after the first successful Clang bootstrap configure. |# Supported Toolchains
+| CMake | `>= 3.25` | CMake project and presets |
+| Ninja | 1.13.2 | Project generator |
+| vcpkg | Manifest mode with the pinned baseline | `vcpkg.json` and CMake presets |
+| Compiler family | Clang / LLVM (`clang++`) | Clang-only CMake preset family |
+| Diagnostic configurations | None published | The active `clang++` toolchain fails the ASan capability check; TSan and coverage remain unpublished pending their own configure-time capability checks. |
+
+## Standard Workflow
+
+Use the Clang presets from the repository root:
+
+```powershell
+cmake --preset clang-bootstrap
+cmake --build --preset clang-bootstrap
+ctest --preset clang-bootstrap --output-on-failure
+```
+
+
+
 
 

@@ -23,6 +23,14 @@ if(TELEMETRY_ENABLE_TSAN AND
         "TSan must use its own build; do not combine it with ASan/UBSan")
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+   CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC" AND
+   CMAKE_CXX_COMPILER_VERSION VERSION_LESS "19.0.0")
+    message(FATAL_ERROR
+        "Clang 19.0.0 or newer is required when using the MSVC STL. "
+        "Found ${CMAKE_CXX_COMPILER_VERSION}. Upgrade LLVM or select a compatible standard library.")
+endif()
+
 include(cmake/TelemetryInstrumentation.cmake)
 
 add_subdirectory(cpp/src/core)

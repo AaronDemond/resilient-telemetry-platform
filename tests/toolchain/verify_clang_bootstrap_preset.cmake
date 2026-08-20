@@ -9,8 +9,7 @@ file(READ "${REPO_ROOT}/CMakePresets.json" presets_json)
 foreach(required_entry IN ITEMS
     "\"name\": \"clang-base\""
     "\"name\": \"clang-bootstrap\""
-    "\"CMAKE_CXX_COMPILER\": \"clang-cl\""
-    "\"VCPKG_TARGET_TRIPLET\": \"x64-windows\""
+    "\"CMAKE_CXX_COMPILER\": \"clang++\""
 )
     string(FIND "${presets_json}" "${required_entry}" required_index)
     if(required_index EQUAL -1)
@@ -23,16 +22,13 @@ if(NOT debug_index EQUAL -1)
     message(FATAL_ERROR "Legacy debug preset is still present")
 endif()
 
+cmake_path(APPEND REPO_ROOT "build" "clang-bootstrap-verify" OUTPUT_VARIABLE verification_build_dir)
+
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
-        -S "${REPO_ROOT}"
-        -B "${REPO_ROOT}/build/clang-bootstrap-verify"
-        -G Ninja
-        -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-        -DCMAKE_CXX_COMPILER=clang-cl
-        -DVCPKG_TARGET_TRIPLET=x64-windows
-        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-        -DBUILD_TESTING=ON
+        --preset clang-bootstrap
+        -B "${verification_build_dir}"
+    WORKING_DIRECTORY "${REPO_ROOT}"
     RESULT_VARIABLE configure_result
     OUTPUT_VARIABLE configure_stdout
     ERROR_VARIABLE configure_stderr

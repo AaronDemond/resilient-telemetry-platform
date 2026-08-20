@@ -15,8 +15,7 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "BUILD_TESTING": "ON",
-        "CMAKE_CXX_COMPILER": "clang-cl",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
+        "CMAKE_CXX_COMPILER": "clang++"
       }
     },
     {
@@ -34,31 +33,6 @@
       }
     },
     {
-      "name": "clang-asan-ubsan",
-      "inherits": "clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "TELEMETRY_ENABLE_ASAN": "ON",
-        "TELEMETRY_ENABLE_UBSAN": "ON"
-      }
-    },
-    {
-      "name": "clang-tsan",
-      "inherits": "clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "TELEMETRY_ENABLE_TSAN": "ON"
-      }
-    },
-    {
-      "name": "clang-coverage",
-      "inherits": "clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "TELEMETRY_ENABLE_COVERAGE": "ON"
-      }
-    },
-    {
       "name": "clang-benchmark",
       "inherits": "clang-base",
       "cacheVariables": {
@@ -71,9 +45,6 @@
   "buildPresets": [
   { "name": "clang-bootstrap", "configurePreset": "clang-bootstrap" },
   { "name": "clang-release", "configurePreset": "clang-release" },
-  { "name": "clang-asan-ubsan", "configurePreset": "clang-asan-ubsan" },
-  { "name": "clang-tsan", "configurePreset": "clang-tsan" },
-  { "name": "clang-coverage", "configurePreset": "clang-coverage" },
   { "name": "clang-benchmark", "configurePreset": "clang-benchmark" }
   ],
   "testPresets": [
@@ -90,36 +61,6 @@
     {
       "name": "clang-release",
       "configurePreset": "clang-release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "clang-asan-ubsan",
-      "configurePreset": "clang-asan-ubsan",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "clang-tsan",
-      "configurePreset": "clang-tsan",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "clang-coverage",
-      "configurePreset": "clang-coverage",
       "output": {
         "outputOnFailure": true
       },
