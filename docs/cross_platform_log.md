@@ -1,6 +1,0 @@
-2026-08-20
-- Rejected the global `_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH` definition for Clang 18 with the MSVC STL. Alternative: require a Clang version supported by the selected MSVC STL, and fail configuration with an actionable version message until that requirement is met.
-- Allowed the isolated Clang/MSVC-STL version gate. It uses CMake's compiler ABI metadata (`CMAKE_CXX_SIMULATE_ID`) and requires Clang 19.0.0 or newer only when the MSVC STL is selected; all other toolchains remain unaffected.
-- Rejected the clang-cl-specific ASan runtime implementation that discovers the LLVM installation layout, links x86-64 Windows runtime archives, and copies an ASan DLL after each executable. Alternative: publish ASan only for toolchain presets where the compiler owns sanitizer runtime selection through its documented sanitizer flag; add a Windows ASan preset only after that compiler/runtime combination is supported without manual runtime paths or DLL deployment.
-- Rejected the `clang-tsan` and `clang-coverage` presets because the active clang-cl implementation cannot configure them. Alternative: expose diagnostic presets only after a configure-time compiler capability check succeeds; until then, omit unsupported presets and document the supported diagnostic matrix.
-
