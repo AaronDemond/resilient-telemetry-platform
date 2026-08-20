@@ -6,6 +6,12 @@ add_test(NAME clang_bootstrap_preset_configures
         -P ${CMAKE_CURRENT_SOURCE_DIR}/toolchain/verify_clang_bootstrap_preset.cmake
 )
 
+add_test(NAME clang_bootstrap_core_builds
+    COMMAND ${CMAKE_COMMAND}
+        --build ${CMAKE_BINARY_DIR}
+        --target telemetry_core
+)
+
 function(telemetry_register_discovered_tests test_root)
     file(GLOB_RECURSE discovered_test_sources CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/${test_root}/*_test.cpp"
@@ -31,7 +37,7 @@ function(telemetry_register_discovered_tests test_root)
         add_dependencies(telemetry_tests ${test_target})
 
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_test(NAME ${test_target} COMMAND ${test_target})
+            add_test(NAME ${test_target} COMMAND $<TARGET_FILE:${test_target}>)
             set_tests_properties(${test_target} PROPERTIES
                 FIXTURES_REQUIRED telemetry_test_binaries
             )
