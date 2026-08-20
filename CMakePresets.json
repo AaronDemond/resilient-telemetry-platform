@@ -7,33 +7,35 @@
   },
   "configurePresets": [
     {
-      "name": "base",
+      "name": "clang-base",
       "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "BUILD_TESTING": "ON"
+        "BUILD_TESTING": "ON",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {
-      "name": "debug",
-      "inherits": "base",
+      "name": "clang-bootstrap",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
-      "name": "release",
-      "inherits": "base",
+      "name": "clang-release",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
-      "name": "asan-ubsan",
-      "inherits": "base",
+      "name": "clang-asan-ubsan",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "TELEMETRY_ENABLE_ASAN": "ON",
@@ -41,24 +43,24 @@
       }
     },
     {
-      "name": "tsan",
-      "inherits": "base",
+      "name": "clang-tsan",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "TELEMETRY_ENABLE_TSAN": "ON"
       }
     },
     {
-      "name": "coverage",
-      "inherits": "base",
+      "name": "clang-coverage",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "TELEMETRY_ENABLE_COVERAGE": "ON"
       }
     },
     {
-      "name": "benchmark",
-      "inherits": "base",
+      "name": "clang-benchmark",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTING": "OFF",
@@ -67,17 +69,17 @@
     }
   ],
   "buildPresets": [
-  { "name": "debug", "configurePreset": "debug" },
-  { "name": "release", "configurePreset": "release" },
-  { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
-  { "name": "tsan", "configurePreset": "tsan" },
-  { "name": "coverage", "configurePreset": "coverage" },
-  { "name": "benchmark", "configurePreset": "benchmark" }
+  { "name": "clang-bootstrap", "configurePreset": "clang-bootstrap" },
+  { "name": "clang-release", "configurePreset": "clang-release" },
+  { "name": "clang-asan-ubsan", "configurePreset": "clang-asan-ubsan" },
+  { "name": "clang-tsan", "configurePreset": "clang-tsan" },
+  { "name": "clang-coverage", "configurePreset": "clang-coverage" },
+  { "name": "clang-benchmark", "configurePreset": "clang-benchmark" }
   ],
   "testPresets": [
     {
-      "name": "debug",
-      "configurePreset": "debug",
+      "name": "clang-bootstrap",
+      "configurePreset": "clang-bootstrap",
       "output": {
         "outputOnFailure": true
       },
@@ -86,8 +88,8 @@
       }
     },
     {
-      "name": "release",
-      "configurePreset": "release",
+      "name": "clang-release",
+      "configurePreset": "clang-release",
       "output": {
         "outputOnFailure": true
       },
@@ -96,8 +98,8 @@
       }
     },
     {
-      "name": "asan-ubsan",
-      "configurePreset": "asan-ubsan",
+      "name": "clang-asan-ubsan",
+      "configurePreset": "clang-asan-ubsan",
       "output": {
         "outputOnFailure": true
       },
@@ -106,8 +108,8 @@
       }
     },
     {
-      "name": "tsan",
-      "configurePreset": "tsan",
+      "name": "clang-tsan",
+      "configurePreset": "clang-tsan",
       "output": {
         "outputOnFailure": true
       },
@@ -116,8 +118,8 @@
       }
     },
     {
-      "name": "coverage",
-      "configurePreset": "coverage",
+      "name": "clang-coverage",
+      "configurePreset": "clang-coverage",
       "output": {
         "outputOnFailure": true
       },

@@ -1,5 +1,11 @@
 add_custom_target(telemetry_tests)
 
+add_test(NAME clang_bootstrap_preset_configures
+    COMMAND ${CMAKE_COMMAND}
+        -DREPO_ROOT=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/toolchain/verify_clang_bootstrap_preset.cmake
+)
+
 function(telemetry_register_discovered_tests test_root)
     file(GLOB_RECURSE discovered_test_sources CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/${test_root}/*_test.cpp"
