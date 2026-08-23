@@ -34,6 +34,23 @@
       }
     },
     {
+      "name": "asan-ubsan",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "TELEMETRY_ENABLE_ASAN": "ON",
+        "TELEMETRY_ENABLE_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "tsan",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "TELEMETRY_ENABLE_TSAN": "ON"
+      }
+    },
+    {
       "name": "clang-release",
       "inherits": "clang-base",
       "cacheVariables": {
@@ -51,10 +68,12 @@
     }
   ],
   "buildPresets": [
-  { "name": "clang-bootstrap", "configurePreset": "clang-bootstrap" },
-  { "name": "debug", "configurePreset": "debug" },
-  { "name": "clang-release", "configurePreset": "clang-release" },
-  { "name": "clang-benchmark", "configurePreset": "clang-benchmark" }
+    { "name": "clang-bootstrap", "configurePreset": "clang-bootstrap" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
+    { "name": "tsan", "configurePreset": "tsan" },
+    { "name": "clang-release", "configurePreset": "clang-release" },
+    { "name": "clang-benchmark", "configurePreset": "clang-benchmark" }
   ],
   "testPresets": [
     {
@@ -70,6 +89,26 @@
     {
       "name": "debug",
       "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
       "output": {
         "outputOnFailure": true
       },

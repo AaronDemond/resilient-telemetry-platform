@@ -9,7 +9,12 @@ file(READ "${REPO_ROOT}/CMakePresets.json" presets_json)
 foreach(required_entry IN ITEMS
     "\"name\": \"clang-base\""
     "\"name\": \"clang-bootstrap\""
+    "\"name\": \"asan-ubsan\""
+    "\"name\": \"tsan\""
     "\"CMAKE_CXX_COMPILER\": \"clang++\""
+    "\"TELEMETRY_ENABLE_ASAN\": \"ON\""
+    "\"TELEMETRY_ENABLE_UBSAN\": \"ON\""
+    "\"TELEMETRY_ENABLE_TSAN\": \"ON\""
 )
     string(FIND "${presets_json}" "${required_entry}" required_index)
     if(required_index EQUAL -1)

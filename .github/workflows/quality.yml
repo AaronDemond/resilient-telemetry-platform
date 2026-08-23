@@ -47,6 +47,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-debug-
 
+      - name: Prepare vcpkg binary cache
+        run: mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+
       - name: Install build tools
         run: |
           sudo apt-get update
@@ -82,6 +85,7 @@ jobs:
           CXX: ${{ matrix.cxx }}
         run: |
           cmake --preset debug \
+            -DCMAKE_CXX_COMPILER="$CXX" \
             -DTELEMETRY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
@@ -97,7 +101,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: quality-evidence
+          name: quality-evidence-${{ matrix.compiler }}
           if-no-files-found: warn
           path: |
             build/debug/ctest-junit.xml
@@ -122,6 +126,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-clang-asan-ubsan-
 
+      - name: Prepare vcpkg binary cache
+        run: mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+
       - name: Install tools
         run: |
           sudo apt-get update
@@ -144,7 +151,9 @@ jobs:
           ASAN_OPTIONS: "halt_on_error=1:detect_leaks=1"
           UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1"
         run: |
-          ctest --preset asan-ubsan 2>&1 | tee asan-ubsan.log
+          ctest --preset asan-ubsan \
+            --output-junit build/asan-ubsan/ctest-junit.xml \
+            2>&1 | tee asan-ubsan.log
 
       - name: Upload ASan/UBSan evidence
         if: always()
@@ -180,6 +189,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-clang-tsan-
 
+      - name: Prepare vcpkg binary cache
+        run: mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+
       - name: Install tools
         run: |
           sudo apt-get update
@@ -199,7 +211,9 @@ jobs:
 
       - name: Test
         run: |
-          ctest --preset tsan 2>&1 | tee tsan.log
+          ctest --preset tsan \
+            --output-junit build/tsan/ctest-junit.xml \
+            2>&1 | tee tsan.log
 
       - name: Upload TSan evidence
         if: always()
