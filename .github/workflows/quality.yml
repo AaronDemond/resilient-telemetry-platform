@@ -7,9 +7,28 @@ on:
 permissions:
   contents: read
 
+# Phase 1 intentionally keeps CI to the minimal useful combinations:
+# - GCC + Debug + tests
+# - Clang + Debug + tests
+# - Clang + ASan/UBSan
+# - Clang + TSan
+# Coverage and benchmark jobs remain separate when they produce meaningful evidence.
+
 jobs:
   quality:
+    name: quality (${{ matrix.compiler }})
     runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
 
     steps:
       - name: Check out source
@@ -20,8 +39,9 @@ jobs:
         with:
           path: |
             vcpkg
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json', '**/CMakePresets.json') }}
+          key: ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-${{ hashFiles('**/vcpkg.json', '**/CMakePresets.json') }}
           restore-keys: |
+            ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-
             ${{ runner.os }}-vcpkg-
 
       - name: Install build tools
@@ -29,22 +49,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             ninja-build \
+            gcc \
+            g++ \
             clang
 
       - name: Bootstrap pinned vcpkg
         run: ./scripts/bootstrap-vcpkg.sh
 
-      - name: Tool versions
+      - name: Record compiler versions
         run: |
+          g++ --version
+          clang++ --version
+
+      - name: Record runner and toolchain evidence
+        run: |
+          echo "Runner image: $RUNNER_OS"
+          cat /etc/os-release
           cmake --version
           ninja --version
+          g++ --version
           clang++ --version
           "$VCPKG_ROOT/vcpkg" version
+          git -C "$VCPKG_ROOT" rev-parse HEAD
+          grep -n '"builtin-baseline"' vcpkg.json
 
       - name: Configure
         env:
-          CC: clang
-          CXX: clang++
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
         run: |
           cmake --preset debug \
             -DTELEMETRY_WARNINGS_AS_ERRORS=ON
@@ -68,3 +100,96 @@ jobs:
             build/debug/ctest-junit.xml
             build/debug/Testing/Temporary/LastTest.log
             build/debug/compile_commands.json
+
+  asan-ubsan:
+    name: asan-ubsan
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang
+
+      - name: Bootstrap pinned vcpkg
+        run: ./scripts/bootstrap-vcpkg.sh
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset asan-ubsan
+
+      - name: Build
+        run: cmake --build --preset asan-ubsan
+
+      - name: Test
+        env:
+          ASAN_OPTIONS: "halt_on_error=1:detect_leaks=1"
+          UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1"
+        run: |
+          ctest --preset asan-ubsan 2>&1 | tee asan-ubsan.log
+
+      - name: Upload ASan/UBSan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asan-ubsan-evidence
+          if-no-files-found: warn
+          path: |
+            asan-ubsan.log
+            build/asan-ubsan/Testing/Temporary/LastTest.log
+            build/asan-ubsan/ctest-junit.xml
+            build/asan-ubsan/compile_commands.json
+
+      - name: Record compiler version
+        if: always()
+        run: clang++ --version
+
+  tsan:
+    name: tsan
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang
+
+      - name: Bootstrap pinned vcpkg
+        run: ./scripts/bootstrap-vcpkg.sh
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset tsan
+
+      - name: Build
+        run: cmake --build --preset tsan
+
+      - name: Test
+        run: |
+          ctest --preset tsan 2>&1 | tee tsan.log
+
+      - name: Upload TSan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsan-evidence
+          if-no-files-found: warn
+          path: |
+            tsan.log
+            build/tsan/Testing/Temporary/LastTest.log
+            build/tsan/ctest-junit.xml
+            build/tsan/compile_commands.json
+
+      - name: Record compiler version
+        if: always()
+        run: clang++ --version
