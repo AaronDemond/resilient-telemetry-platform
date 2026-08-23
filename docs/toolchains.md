@@ -10,12 +10,18 @@
 
 ## Standard Workflow
 
-Use the Clang presets from the repository root:
+Use the Debug preset from the repository root:
 
 ```powershell
-cmake --preset clang-bootstrap
-cmake --build --preset clang-bootstrap
-ctest --preset clang-bootstrap --output-on-failure
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --output-on-failure
+```
+
+For CI, enable warnings as errors explicitly:
+
+```powershell
+cmake --preset debug -DTELEMETRY_WARNINGS_AS_ERRORS=ON
 ```
 
 

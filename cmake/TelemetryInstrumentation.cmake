@@ -2,6 +2,10 @@ add_library(telemetry_instrumentation INTERFACE)
 
 include(CheckCXXCompilerFlag)
 
+option(TELEMETRY_WARNINGS_AS_ERRORS
+    "Treat project compiler warnings as errors"
+    OFF)
+
 function(telemetry_require_compiler_flag compiler_flag)
     string(MAKE_C_IDENTIFIER "${compiler_flag}" compiler_flag_identifier)
     set(compiler_flag_check "telemetry_supports_${compiler_flag_identifier}")
@@ -10,6 +14,25 @@ function(telemetry_require_compiler_flag compiler_flag)
     if(NOT ${compiler_flag_check})
         message(FATAL_ERROR
             "${CMAKE_CXX_COMPILER_ID} does not support the required instrumentation flag ${compiler_flag}")
+    endif()
+endfunction()
+
+function(telemetry_enable_warnings target_name)
+    target_compile_options(${target_name} PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wconversion
+        -Wsign-conversion
+        -Wshadow
+        -Wformat=2
+        -Wundef
+        -Wnon-virtual-dtor
+        -Wold-style-cast
+        -Woverloaded-virtual)
+
+    if(TELEMETRY_WARNINGS_AS_ERRORS)
+        target_compile_options(${target_name} PRIVATE -Werror)
     endif()
 endfunction()
 

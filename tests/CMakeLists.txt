@@ -69,6 +69,7 @@ function(telemetry_register_discovered_tests test_root)
             )
         endif()
 
+        telemetry_enable_warnings(${test_target})
         telemetry_enable_instrumentation(${test_target})
         add_dependencies(telemetry_tests ${test_target})
 
@@ -113,6 +114,7 @@ if(TELEMETRY_BUILD_FUZZERS)
         PRIVATE
             telemetry::core
     )
+    telemetry_enable_warnings(telemetry_placeholder_fuzzer)
     target_compile_options(telemetry_placeholder_fuzzer
         PRIVATE -fsanitize=fuzzer)
     target_link_options(telemetry_placeholder_fuzzer
@@ -130,5 +132,6 @@ if(TELEMETRY_BUILD_BENCHMARKS)
         PRIVATE
             telemetry::core
     )
+    telemetry_enable_warnings(telemetry_benchmarks)
     telemetry_enable_instrumentation(telemetry_benchmarks)
 endif()

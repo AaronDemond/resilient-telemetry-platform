@@ -26,6 +26,14 @@
       }
     },
     {
+      "name": "debug",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TELEMETRY_WARNINGS_AS_ERRORS": "OFF"
+      }
+    },
+    {
       "name": "clang-release",
       "inherits": "clang-base",
       "cacheVariables": {
@@ -44,6 +52,7 @@
   ],
   "buildPresets": [
   { "name": "clang-bootstrap", "configurePreset": "clang-bootstrap" },
+  { "name": "debug", "configurePreset": "debug" },
   { "name": "clang-release", "configurePreset": "clang-release" },
   { "name": "clang-benchmark", "configurePreset": "clang-benchmark" }
   ],
@@ -51,6 +60,16 @@
     {
       "name": "clang-bootstrap",
       "configurePreset": "clang-bootstrap",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug",
       "output": {
         "outputOnFailure": true
       },

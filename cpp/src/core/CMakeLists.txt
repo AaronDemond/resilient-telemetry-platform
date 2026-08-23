@@ -11,3 +11,5 @@ target_include_directories(telemetry_core
 )
 
 target_compile_features(telemetry_core PUBLIC cxx_std_20)
+
+telemetry_enable_warnings(telemetry_core)

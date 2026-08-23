@@ -9,4 +9,5 @@ target_link_libraries(ingestor
         telemetry::postgres_adapter
 )
 
+telemetry_enable_warnings(ingestor)
 telemetry_enable_instrumentation(ingestor)

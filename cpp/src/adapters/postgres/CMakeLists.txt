@@ -15,4 +15,5 @@ target_include_directories(postgres_adapter
     ${CMAKE_SOURCE_DIR}/cpp/include
 )
 
+telemetry_enable_warnings(postgres_adapter)
 telemetry_enable_instrumentation(postgres_adapter)

@@ -8,4 +8,5 @@ target_link_libraries(operations_api
         telemetry::postgres_adapter
 )
 
+telemetry_enable_warnings(operations_api)
 telemetry_enable_instrumentation(operations_api)

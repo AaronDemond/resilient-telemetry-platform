@@ -15,4 +15,5 @@ target_include_directories(nats_adapter
         ${CMAKE_SOURCE_DIR}/cpp/include
 )
 
+telemetry_enable_warnings(nats_adapter)
 telemetry_enable_instrumentation(nats_adapter)
