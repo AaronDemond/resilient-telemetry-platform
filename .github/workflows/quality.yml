@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache/vcpkg/archives
+
 # Phase 1 intentionally keeps CI to the minimal useful combinations:
 # - GCC + Debug + tests
 # - Clang + Debug + tests
@@ -39,10 +42,10 @@ jobs:
         with:
           path: |
             vcpkg
-          key: ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-${{ hashFiles('**/vcpkg.json', '**/CMakePresets.json') }}
+            ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-debug-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-
-            ${{ runner.os }}-vcpkg-
+            ${{ runner.os }}-vcpkg-${{ matrix.compiler }}-debug-
 
       - name: Install build tools
         run: |
@@ -109,6 +112,16 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-vcpkg-clang-asan-ubsan-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-clang-asan-ubsan-
+
       - name: Install tools
         run: |
           sudo apt-get update
@@ -156,6 +169,16 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: ${{ runner.os }}-vcpkg-clang-tsan-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-clang-tsan-
 
       - name: Install tools
         run: |
