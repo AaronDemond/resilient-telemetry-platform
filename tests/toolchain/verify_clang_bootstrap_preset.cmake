@@ -18,8 +18,8 @@ foreach(required_entry IN ITEMS
 endforeach()
 
 string(FIND "${presets_json}" "\"name\": \"debug\"" debug_index)
-if(NOT debug_index EQUAL -1)
-    message(FATAL_ERROR "Legacy debug preset is still present")
+if(debug_index EQUAL -1)
+    message(FATAL_ERROR "Expected debug preset entry is missing")
 endif()
 
 cmake_path(APPEND REPO_ROOT "build" "clang-bootstrap-verify" OUTPUT_VARIABLE verification_build_dir)

@@ -15,6 +15,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json', '**/CMakePresets.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
       - name: Install build tools
         run: |
           sudo apt-get update
