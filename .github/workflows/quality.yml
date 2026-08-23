@@ -1,0 +1,62 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            clang
+
+      - name: Bootstrap pinned vcpkg
+        run: |
+          ./scripts/bootstrap-vcpkg.sh >> "$GITHUB_ENV"
+
+      - name: Tool versions
+        run: |
+          cmake --version
+          ninja --version
+          clang++ --version
+          "$VCPKG_ROOT/vcpkg" version
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake --preset debug \
+            -DTELEMETRY_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset debug
+
+      - name: Test
+        run: |
+          ctest --preset debug \
+            --output-on-failure \
+            --output-junit build/debug/ctest-junit.xml
+
+      - name: Upload quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-evidence
+          if-no-files-found: warn
+          path: |
+            build/debug/ctest-junit.xml
+            build/debug/Testing/Temporary/LastTest.log
+            build/debug/compile_commands.json

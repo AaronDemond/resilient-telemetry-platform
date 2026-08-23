@@ -1,0 +1,12 @@
+version: 2
+
+updates:
+  - package-ecosystem: "vcpkg"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "vcpkg"
+    commit-message:
+      prefix: "deps"
