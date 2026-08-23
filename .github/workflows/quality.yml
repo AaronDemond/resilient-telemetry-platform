@@ -23,8 +23,7 @@ jobs:
             clang
 
       - name: Bootstrap pinned vcpkg
-        run: |
-          ./scripts/bootstrap-vcpkg.sh >> "$GITHUB_ENV"
+        run: ./scripts/bootstrap-vcpkg.sh
 
       - name: Tool versions
         run: |
