@@ -102,6 +102,12 @@ function(telemetry_register_discovered_tests test_root)
             "${test_source}"
         )
 
+        # This cross-language test is registered above because it requires a
+        # Python-generated payload argument and explicit fixture ordering.
+        if(relative_source STREQUAL "unit/proto/python_to_cpp_roundtrip_test.cpp")
+            continue()
+        endif()
+
         get_filename_component(test_name "${test_source}" NAME_WE)
         string(REPLACE "/" "_" test_target "${relative_source}")
         string(REPLACE "\\" "_" test_target "${test_target}")
