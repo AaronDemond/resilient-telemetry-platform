@@ -1,0 +1,35 @@
+services:
+  nats:
+    image: nats:2.14-alpine
+    command:
+      - "-c"
+      - "/etc/nats/nats-server.conf"
+    ports:
+      - "127.0.0.1:14222:4222"
+      - "127.0.0.1:18222:8222"
+    volumes:
+      - nats-data:/data
+      - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: telemetry
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "pg_isready -U telemetry -d telemetry"
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  nats-data:
+  postgres-data:

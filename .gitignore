@@ -3,6 +3,7 @@ build/
 build-fuzz/
 **/build/
 **/vcpkg_installed/
+vcpkg*
 **/CMakeFiles/
 **/CMakeCache.txt
 **/compile_commands.json
@@ -18,3 +19,6 @@ output.md
 
 # Editor metadata
 .vscode/
+
+# Local environment secrets
+.env

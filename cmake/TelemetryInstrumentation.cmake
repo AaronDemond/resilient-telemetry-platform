@@ -1,6 +1,7 @@
 add_library(telemetry_instrumentation INTERFACE)
 
-include(CheckCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
+include(CMakePushCheckState)
 
 option(TELEMETRY_WARNINGS_AS_ERRORS
     "Treat project compiler warnings as errors"
@@ -8,12 +9,17 @@ option(TELEMETRY_WARNINGS_AS_ERRORS
 
 function(telemetry_require_compiler_flag compiler_flag)
     string(MAKE_C_IDENTIFIER "${compiler_flag}" compiler_flag_identifier)
-    set(compiler_flag_check "telemetry_supports_${compiler_flag_identifier}")
-    check_cxx_compiler_flag("${compiler_flag}" ${compiler_flag_check})
+    set(compiler_flag_check "telemetry_can_use_${compiler_flag_identifier}")
+
+    cmake_push_check_state(RESET)
+    set(CMAKE_REQUIRED_FLAGS "${compiler_flag}")
+    set(CMAKE_REQUIRED_LINK_OPTIONS "${compiler_flag}")
+    check_cxx_source_compiles("int main() { return 0; }" ${compiler_flag_check})
+    cmake_pop_check_state()
 
     if(NOT ${compiler_flag_check})
         message(FATAL_ERROR
-            "${CMAKE_CXX_COMPILER_ID} does not support the required instrumentation flag ${compiler_flag}")
+            "${CMAKE_CXX_COMPILER_ID} cannot compile and link with the required instrumentation flag ${compiler_flag}")
     endif()
 endfunction()
 
