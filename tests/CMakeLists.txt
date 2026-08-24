@@ -17,6 +17,21 @@ add_test(NAME clang_bootstrap_core_builds
         --target telemetry_core
 )
 
+add_executable(telemetry_data_smoke_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/core/telemetry_data_smoke_test.cpp
+)
+
+target_link_libraries(telemetry_data_smoke_test
+    PRIVATE
+        telemetry::core
+)
+
+telemetry_enable_warnings(telemetry_data_smoke_test)
+telemetry_enable_instrumentation(telemetry_data_smoke_test)
+add_dependencies(telemetry_tests telemetry_data_smoke_test)
+
+add_test(NAME telemetry_data_smoke_test COMMAND $<TARGET_FILE:telemetry_data_smoke_test>)
+
 add_test(NAME clang_bootstrap_nats_adapter_builds
     COMMAND ${CMAKE_COMMAND}
         --build ${CMAKE_BINARY_DIR}

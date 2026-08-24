@@ -1,9 +1,15 @@
 # cpp/src/core/CMakeLists.txt
 add_library(telemetry_core STATIC
+    telemetry_data.cpp
     version.cpp
 )
 
 add_library(telemetry::core ALIAS telemetry_core)
+
+target_link_libraries(telemetry_core
+    PUBLIC
+        telemetry::protos
+)
 
 target_include_directories(telemetry_core
     PUBLIC
