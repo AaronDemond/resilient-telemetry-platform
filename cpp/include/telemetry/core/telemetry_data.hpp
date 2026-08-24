@@ -12,8 +12,8 @@ namespace telemetry::core {
 class TelemetryData {
 public:
     TelemetryData() = default;
+    // Copies lvalue messages and moves rvalue messages into the wrapper.
     explicit TelemetryData(telemetry::v1::TelemetryMessage message);
-    explicit TelemetryData(const telemetry::v1::TelemetryMessage& message);
 
     [[nodiscard]] const telemetry::v1::TelemetryMessage& message() const noexcept;
     [[nodiscard]] telemetry::v1::TelemetryMessage& mutable_message() noexcept;

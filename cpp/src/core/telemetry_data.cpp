@@ -10,9 +10,6 @@ namespace telemetry::core {
 TelemetryData::TelemetryData(telemetry::v1::TelemetryMessage message)
     : message_(std::move(message)) {}
 
-TelemetryData::TelemetryData(const telemetry::v1::TelemetryMessage& message)
-    : message_(message) {}
-
 const telemetry::v1::TelemetryMessage& TelemetryData::message() const noexcept {
     return message_;
 }
