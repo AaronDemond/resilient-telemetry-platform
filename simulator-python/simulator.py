@@ -75,6 +75,25 @@ class Position:
 
 
 @dataclass
+class MovementState:
+    """Persistent direction and speed state for one moving unit."""
+
+    direction_radians: float = 0.0
+    speed: float = 0.0
+    direction_seconds_remaining: float = 0.0
+    speed_seconds_remaining: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate movement values before the simulation uses them."""
+        if self.speed < 0.0:
+            raise ValueError("movement speed must be non-negative")
+        if self.direction_seconds_remaining < 0.0:
+            raise ValueError("direction duration must be non-negative")
+        if self.speed_seconds_remaining < 0.0:
+            raise ValueError("speed duration must be non-negative")
+
+
+@dataclass
 class Unit:
     """Simple simulator model for an operational unit.
 
@@ -84,6 +103,7 @@ class Unit:
 
     unit_id: str
     position: Position = field(default_factory=Position)
+    movement: MovementState = field(default_factory=MovementState)
     telemetry_message: TelemetryMessageView | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:

@@ -16,6 +16,8 @@ def _run_simulation_iterations(
 
     for _ in range(iterations):
         simulation.run_iteration()
+        for unit in simulation.get_units():
+            simulation.generate_telemetry(unit)
         telemetry_snapshots.append(
             [
                 (unit.unit_id, unit.get_telemetry_message().SerializeToString())
