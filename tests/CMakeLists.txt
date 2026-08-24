@@ -51,9 +51,12 @@ add_test(
         ${CMAKE_SOURCE_DIR}/simulator-python/serialize_python_telemetry.py
         ${CMAKE_BINARY_DIR}/python_roundtrip_payload.bin
 )
+# Treat the Python payload as a fixture so parallel CTest runs cannot start the
+# C++ consumer until serialization has completed successfully.
 set_tests_properties(python_to_cpp_roundtrip_test PROPERTIES
     ENVIRONMENT "PYTHONPATH=${PROTO_PY_GENERATED_DIR}"
     FIXTURES_REQUIRED telemetry_test_binaries
+    FIXTURES_SETUP python_telemetry_roundtrip_payload
 )
 
 add_test(
@@ -62,7 +65,7 @@ add_test(
         ${CMAKE_BINARY_DIR}/python_roundtrip_payload.bin
 )
 set_tests_properties(python_to_cpp_roundtrip_test_cpp PROPERTIES
-    FIXTURES_REQUIRED telemetry_test_binaries
+    FIXTURES_REQUIRED "telemetry_test_binaries;python_telemetry_roundtrip_payload"
 )
 
 add_test(NAME clang_bootstrap_nats_adapter_builds
