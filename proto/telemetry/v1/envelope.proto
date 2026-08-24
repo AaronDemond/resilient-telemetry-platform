@@ -23,7 +23,13 @@ message Envelope {
   string unit_id = 3;
   string boot_id = 4;
   string session_id = 5;
+  // sequence_number is monotonic within a single unit_id + boot_id lifecycle.
+  // It may reset to 1 only after the unit starts a new boot/session and issues
+  // a new boot_id.
   uint64 sequence_number = 6;
+  // source_timestamp_ms is the telemetry producer's local observation time,
+  // expressed as Unix epoch milliseconds. It is not the receiver's current wall
+  // clock and must be validated against an acceptable future time skew.
   int64 source_timestamp_ms = 7;
   uint32 schema_version = 8;
   string correlation_id = 9;

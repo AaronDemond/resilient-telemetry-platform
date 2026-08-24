@@ -7,6 +7,7 @@ target_link_libraries(ingestor
         telemetry::core
         telemetry::nats_adapter
         telemetry::postgres_adapter
+        telemetry::protos
 )
 
 telemetry_enable_warnings(ingestor)

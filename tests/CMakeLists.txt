@@ -57,6 +57,13 @@ function(telemetry_register_discovered_tests test_root)
                 telemetry::core
         )
 
+        if(relative_source MATCHES "^unit/proto/")
+            target_link_libraries(${test_target}
+                PRIVATE
+                    telemetry::protos
+            )
+        endif()
+
         if(relative_source MATCHES "^integration/nats/")
             target_link_libraries(${test_target}
                 PRIVATE
