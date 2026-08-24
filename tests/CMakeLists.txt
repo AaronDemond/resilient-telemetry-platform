@@ -17,6 +17,19 @@ add_test(NAME clang_bootstrap_core_builds
         --target telemetry_core
 )
 
+add_executable(python_to_cpp_roundtrip_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/proto/python_to_cpp_roundtrip_test.cpp
+)
+
+target_link_libraries(python_to_cpp_roundtrip_test
+    PRIVATE
+        telemetry::protos
+)
+
+telemetry_enable_warnings(python_to_cpp_roundtrip_test)
+telemetry_enable_instrumentation(python_to_cpp_roundtrip_test)
+add_dependencies(telemetry_tests python_to_cpp_roundtrip_test)
+
 add_executable(telemetry_data_smoke_test
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/core/telemetry_data_smoke_test.cpp
 )
@@ -31,6 +44,26 @@ telemetry_enable_instrumentation(telemetry_data_smoke_test)
 add_dependencies(telemetry_tests telemetry_data_smoke_test)
 
 add_test(NAME telemetry_data_smoke_test COMMAND $<TARGET_FILE:telemetry_data_smoke_test>)
+
+add_test(
+    NAME python_to_cpp_roundtrip_test
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/simulator-python/serialize_python_telemetry.py
+        ${CMAKE_BINARY_DIR}/python_roundtrip_payload.bin
+)
+set_tests_properties(python_to_cpp_roundtrip_test PROPERTIES
+    ENVIRONMENT "PYTHONPATH=${PROTO_PY_GENERATED_DIR}"
+    FIXTURES_REQUIRED telemetry_test_binaries
+)
+
+add_test(
+    NAME python_to_cpp_roundtrip_test_cpp
+    COMMAND $<TARGET_FILE:python_to_cpp_roundtrip_test>
+        ${CMAKE_BINARY_DIR}/python_roundtrip_payload.bin
+)
+set_tests_properties(python_to_cpp_roundtrip_test_cpp PROPERTIES
+    FIXTURES_REQUIRED telemetry_test_binaries
+)
 
 add_test(NAME clang_bootstrap_nats_adapter_builds
     COMMAND ${CMAKE_COMMAND}
