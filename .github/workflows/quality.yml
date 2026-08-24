@@ -59,6 +59,14 @@ jobs:
             g++ \
             clang
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Python protobuf runtime
+        run: python -m pip install --requirement simulator-python/requirements.txt
+
       - name: Bootstrap pinned vcpkg
         run: ./scripts/bootstrap-vcpkg.sh
 
@@ -85,7 +93,9 @@ jobs:
           CXX: ${{ matrix.cxx }}
         run: |
           cmake --preset debug \
+            -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DTELEMETRY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
@@ -134,6 +144,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build clang
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Python protobuf runtime
+        run: python -m pip install --requirement simulator-python/requirements.txt
+
       - name: Bootstrap pinned vcpkg
         run: ./scripts/bootstrap-vcpkg.sh
 
@@ -141,7 +159,11 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-        run: cmake --preset asan-ubsan
+        run: |
+          cmake --preset asan-ubsan \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux
 
       - name: Build
         run: cmake --build --preset asan-ubsan
@@ -197,6 +219,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build clang
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Python protobuf runtime
+        run: python -m pip install --requirement simulator-python/requirements.txt
+
       - name: Bootstrap pinned vcpkg
         run: ./scripts/bootstrap-vcpkg.sh
 
@@ -204,7 +234,11 @@ jobs:
         env:
           CC: clang
           CXX: clang++
-        run: cmake --preset tsan
+        run: |
+          cmake --preset tsan \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux
 
       - name: Build
         run: cmake --build --preset tsan

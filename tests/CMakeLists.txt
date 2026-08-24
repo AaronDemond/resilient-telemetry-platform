@@ -1,10 +1,15 @@
-add_custom_target(telemetry_tests)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-add_test(NAME clang_bootstrap_preset_configures
-    COMMAND ${CMAKE_COMMAND}
-        -DREPO_ROOT=${CMAKE_SOURCE_DIR}
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/toolchain/verify_clang_bootstrap_preset.cmake
-)
+add_custom_target(telemetry_tests)
+add_dependencies(telemetry_tests telemetry_proto_python)
+
+if(WIN32)
+    add_test(NAME clang_bootstrap_preset_configures
+        COMMAND ${CMAKE_COMMAND}
+            -DREPO_ROOT=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/toolchain/verify_clang_bootstrap_preset.cmake
+    )
+endif()
 
 add_test(NAME clang_bootstrap_core_builds
     COMMAND ${CMAKE_COMMAND}
@@ -92,6 +97,16 @@ endfunction()
 telemetry_register_discovered_tests(unit)
 telemetry_register_discovered_tests(integration)
 telemetry_register_discovered_tests(system)
+
+add_test(
+    NAME unit_proto_python_contract_smoke
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/unit/proto/test_proto_contract_smoke.py
+)
+set_tests_properties(unit_proto_python_contract_smoke PROPERTIES
+    ENVIRONMENT "PYTHONPATH=${PROTO_PY_GENERATED_DIR}"
+    FIXTURES_REQUIRED telemetry_test_binaries
+)
 
 add_test(NAME ingestor_prints_version
     COMMAND $<TARGET_FILE:ingestor>

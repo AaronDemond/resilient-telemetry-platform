@@ -2,11 +2,11 @@
 #include <iostream>
 #include <string>
 
-#include "envelope.pb.h"
-#include "operator_request.pb.h"
-#include "request_acknowledgement.pb.h"
-#include "standard_error.pb.h"
-#include "telemetry_event.pb.h"
+#include "telemetry/v1/envelope.pb.h"
+#include "telemetry/v1/operator_request.pb.h"
+#include "telemetry/v1/request_acknowledgement.pb.h"
+#include "telemetry/v1/standard_error.pb.h"
+#include "telemetry/v1/telemetry_event.pb.h"
 
 namespace {
 

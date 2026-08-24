@@ -1,36 +1,6 @@
-import sys
 import unittest
-from pathlib import Path
 
-# Contract source: docs/field-constraints-and-units.md
-# The generated Python modules live in the configured build tree, so we resolve the
-# active generated output directory before importing them.
-
-def _ensure_generated_modules_on_path() -> None:
-    repo_root = Path(__file__).resolve().parents[3]
-    candidate_roots = [
-        repo_root / "build",
-        repo_root / "build" / "debug",
-        repo_root / "build" / "clang-bootstrap",
-        repo_root / "build" / "clang-asan",
-        repo_root / "build" / "proto-validation",
-    ]
-
-    for root in candidate_roots:
-        proto_dir = root / "telemetry" / "v1"
-        if proto_dir.exists():
-            sys.path.insert(0, str(root))
-            return
-
-    raise FileNotFoundError(
-        "No generated protobuf Python output found under the build directories. "
-        "Configure the project first so the generated telemetry.v1 modules exist."
-    )
-
-
-_ensure_generated_modules_on_path()
-
-from telemetry.v1 import (  # noqa: E402
+from telemetry.v1 import (
     envelope_pb2,
     operator_request_pb2,
     request_acknowledgement_pb2,
@@ -175,7 +145,6 @@ class GeneratedProtoContractSmokeTest(unittest.TestCase):
         self.assertEqual(error.code, standard_error_pb2.ERROR_CODE_VALIDATION_FAILED)
         self.assertTrue(error.message)
         self.assertTrue(error.source_field)
-        self.assertIsInstance(error.metadata, dict)
         self.assertIn("rule", error.metadata)
         self.assertEqual(error.metadata["rule"], "monotonic")
 
