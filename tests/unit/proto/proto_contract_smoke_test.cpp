@@ -7,6 +7,7 @@
 #include "telemetry/v1/request_acknowledgement.pb.h"
 #include "telemetry/v1/standard_error.pb.h"
 #include "telemetry/v1/telemetry_event.pb.h"
+#include "telemetry/v1/telemetry_message.pb.h"
 
 namespace {
 
@@ -131,6 +132,35 @@ int main() {
     return 1;
   }
   if (!Require(CheckTelemetryEventContract(event_decoded), "TelemetryEvent contract check failed after deserialization")) {
+    return 1;
+  }
+
+  telemetry::v1::TelemetryMessage telemetry_message;
+  telemetry_message.mutable_envelope()->CopyFrom(envelope);
+  telemetry_message.mutable_event()->CopyFrom(event);
+
+  const std::string telemetry_message_payload = telemetry_message.SerializeAsString();
+  if (!Require(!telemetry_message_payload.empty(), "TelemetryMessage serialization produced empty payload")) {
+    return 1;
+  }
+
+  telemetry::v1::TelemetryMessage telemetry_message_decoded;
+  if (!Require(telemetry_message_decoded.ParseFromString(telemetry_message_payload),
+               "TelemetryMessage parse failed")) {
+    return 1;
+  }
+  if (!Require(telemetry_message_decoded.has_envelope(), "TelemetryMessage envelope missing")) {
+    return 1;
+  }
+  if (!Require(telemetry_message_decoded.has_event(), "TelemetryMessage event missing")) {
+    return 1;
+  }
+  if (!Require(telemetry_message_decoded.envelope().SerializeAsString() == envelope_payload,
+               "TelemetryMessage envelope mismatch")) {
+    return 1;
+  }
+  if (!Require(telemetry_message_decoded.event().SerializeAsString() == event_payload,
+               "TelemetryMessage event mismatch")) {
     return 1;
   }
 

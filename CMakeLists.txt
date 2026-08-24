@@ -53,6 +53,7 @@ set(PROTO_FILES
     ${PROTO_SOURCE_DIR}/telemetry/v1/request_acknowledgement.proto
     ${PROTO_SOURCE_DIR}/telemetry/v1/standard_error.proto
     ${PROTO_SOURCE_DIR}/telemetry/v1/telemetry_event.proto
+    ${PROTO_SOURCE_DIR}/telemetry/v1/telemetry_message.proto
 )
 
 file(MAKE_DIRECTORY

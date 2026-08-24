@@ -6,6 +6,7 @@ from telemetry.v1 import (
     request_acknowledgement_pb2,
     standard_error_pb2,
     telemetry_event_pb2,
+    telemetry_message_pb2,
 )
 
 
@@ -96,6 +97,37 @@ class GeneratedProtoContractSmokeTest(unittest.TestCase):
         decoded.ParseFromString(payload)
         self.assertEqual(decoded, event)
         self._assert_required_event_fields(decoded)
+
+    def test_telemetry_message_round_trip_contract(self):
+        telemetry_message = telemetry_message_pb2.TelemetryMessage()
+        telemetry_message.envelope.message_id = "msg-001"
+        telemetry_message.envelope.run_id = "run-001"
+        telemetry_message.envelope.unit_id = "unit-42"
+        telemetry_message.envelope.boot_id = "boot-7"
+        telemetry_message.envelope.sequence_number = 17
+        telemetry_message.envelope.source_timestamp_ms = 1700000000000
+        telemetry_message.envelope.schema_version = 1
+        telemetry_message.event.unit_id = "unit-42"
+        telemetry_message.event.boot_id = "boot-7"
+        telemetry_message.event.schema_version = 1
+        telemetry_message.event.software_version = "1.0.0"
+        telemetry_message.event.sequence_number = 17
+        telemetry_message.event.source_timestamp_ms = 1700000000000
+        telemetry_message.event.status = telemetry_event_pb2.UNIT_STATUS_AVAILABLE
+
+        self.assertTrue(telemetry_message.HasField("envelope"))
+        self.assertTrue(telemetry_message.HasField("event"))
+        self._assert_required_envelope_fields(telemetry_message.envelope)
+        self._assert_required_event_fields(telemetry_message.event)
+
+        payload = telemetry_message.SerializeToString()
+        self.assertGreater(len(payload), 0)
+
+        decoded = telemetry_message_pb2.TelemetryMessage()
+        decoded.ParseFromString(payload)
+        self.assertEqual(decoded, telemetry_message)
+        self.assertTrue(decoded.HasField("envelope"))
+        self.assertTrue(decoded.HasField("event"))
 
     def test_operator_request_and_ack_round_trip_contract(self):
         request = operator_request_pb2.OperatorRequest()

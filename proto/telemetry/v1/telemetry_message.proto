@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option csharp_namespace = "Telemetry.V1";
+option java_package = "com.telemetry.v1";
+option java_multiple_files = true;
+option go_package = "telemetry/v1;telemetryv1";
+
+import "telemetry/v1/envelope.proto";
+import "telemetry/v1/telemetry_event.proto";
+
+// Telemetry transport payload. Both components must be present for a valid
+// telemetry message; validation remains an application responsibility in v1.
+message TelemetryMessage {
+  Envelope envelope = 1;
+  TelemetryEvent event = 2;
+}
