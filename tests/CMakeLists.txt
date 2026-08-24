@@ -165,6 +165,21 @@ set_tests_properties(unit_proto_python_contract_smoke PROPERTIES
     FIXTURES_REQUIRED telemetry_test_binaries
 )
 
+add_test(
+    NAME unit_simulator_python_tests
+    COMMAND ${Python3_EXECUTABLE} -m unittest discover
+        -s ${CMAKE_CURRENT_SOURCE_DIR}/unit/simulator
+        -p "test_*.py"
+        -v
+)
+# Use CMake's host-aware path-list operation so discovery works on Windows and Linux.
+set_tests_properties(unit_simulator_python_tests PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    ENVIRONMENT_MODIFICATION
+        "PYTHONPATH=path_list_prepend:${PROTO_PY_GENERATED_DIR};PYTHONPATH=path_list_prepend:${CMAKE_SOURCE_DIR}/simulator-python"
+    FIXTURES_REQUIRED telemetry_test_binaries
+)
+
 add_test(NAME ingestor_prints_version
     COMMAND $<TARGET_FILE:ingestor>
 )

@@ -5,6 +5,7 @@ build-fuzz/
 **/vcpkg_installed/
 vcpkg*
 **/CMakeFiles/
+*__pycache__*
 **/CMakeCache.txt
 **/compile_commands.json
 **/Testing/
