@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option java_package = "com.telemetry.v1";
+option go_package = "telemetry/v1;telemetryv1";
+
+message RequestAcknowledgement {
+  string request_id = 1;
+  string unit_id = 2;
+  string boot_id = 3;
+  string correlation_id = 4;
+  AcknowledgementStatus status = 5;
+
+  oneof response {
+    ChangeSamplingIntervalResponse change_sampling_interval = 10;
+    HealthReportResponse health_report = 11;
+    DiagnosticChannelResponse diagnostic_channel = 12;
+    AcknowledgeAlertResponse acknowledge_alert = 13;
+  }
+}
+
+enum AcknowledgementStatus {
+  ACK_STATUS_UNSPECIFIED = 0;
+  ACK_STATUS_APPLIED = 1;
+  ACK_STATUS_REJECTED = 2;
+  ACK_STATUS_NOT_SUPPORTED = 3;
+}
+
+message ChangeSamplingIntervalResponse {
+  uint32 applied_interval_ms = 1;
+}
+
+message HealthReportResponse {
+  // The actual health data arrives as a TelemetryEvent.
+  // This response just confirms the unit generated the report.
+  bool report_generated = 1;
+}
+
+message DiagnosticChannelResponse {
+  string channel_name = 1;
+  bool enabled = 2;
+}
+
+message AcknowledgeAlertResponse {
+  string alert_id = 1;
+  bool acknowledged = 2;
+}

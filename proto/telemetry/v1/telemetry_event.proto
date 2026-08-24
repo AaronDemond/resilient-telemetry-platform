@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option java_package = "com.telemetry.v1";
+option go_package = "telemetry/v1;telemetryv1";
+
+message TelemetryEvent {
+  // --- Identity ---
+  string unit_id = 1;
+  string boot_id = 2;
+  uint32 schema_version = 3;
+  string software_version = 4;
+
+  // --- Timing ---
+  uint64 sequence_number = 5;
+  int64 source_timestamp_ms = 6;
+
+  // --- Position ---
+  double latitude = 7;
+  double longitude = 8;
+
+  // --- Health and environment ---
+  float fuel_remaining = 9;
+  float equipment_temperature_c = 10;
+  float connectivity_quality = 11;
+  HealthFlags health_flags = 12;
+
+  // --- Status ---
+  UnitStatus status = 13;
+
+  // --- Optional correlation ---
+  string correlation_id = 14;
+}
+
+enum UnitStatus {
+  UNIT_STATUS_UNSPECIFIED = 0;
+  UNIT_STATUS_AVAILABLE = 1;
+  UNIT_STATUS_EN_ROUTE = 2;
+  UNIT_STATUS_RETURNING = 3;
+}
+
+message HealthFlags {
+  bool temperature_warning = 2;
+  bool connectivity_degraded = 3;
+  bool maintenance_required = 4;
+}

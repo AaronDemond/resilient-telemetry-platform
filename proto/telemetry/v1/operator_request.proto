@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option java_package = "com.telemetry.v1";
+option go_package = "telemetry/v1;telemetryv1";
+
+message OperatorRequest {
+  string request_id = 1;
+  string unit_id = 2;
+  string boot_id = 3;
+  string correlation_id = 4;
+
+  oneof request_type {
+    ChangeSamplingIntervalRequest change_sampling_interval = 10;
+    HealthReportRequest health_report = 11;
+    DiagnosticChannelRequest diagnostic_channel = 12;
+    AcknowledgeAlertRequest acknowledge_alert = 13;
+  }
+}
+
+message ChangeSamplingIntervalRequest {
+  uint32 interval_ms = 1;
+}
+
+message HealthReportRequest {
+  // No additional fields — the unit responds with current health.
+}
+
+message DiagnosticChannelRequest {
+  string channel_name = 1;
+  bool enabled = 2;
+}
+
+message AcknowledgeAlertRequest {
+  string alert_id = 1;
+}

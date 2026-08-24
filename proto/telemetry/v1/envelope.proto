@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option csharp_namespace = "Telemetry.V1";
+option java_package = "com.telemetry.v1";
+option java_multiple_files = true;
+
+message Envelope {
+  // v1 contract notes:
+  // - proto3 does not make these fields required at the language level.
+  // - validation code and tests must reject empty or invalid values for the
+  //   mandatory fields below.
+  // - required for any valid v1 envelope: message_id, run_id, unit_id, boot_id,
+  //   sequence_number, source_timestamp_ms, schema_version.
+  // - correlation_id is optional unless the message is part of a request or
+  //   response trace; in that case it must be set and preserved.
+  // - session_id is part of operational metadata and may be present when the
+  //   runtime tracks a session boundary, but it is not required by the minimal
+  //   v1 identity contract.
+  string message_id = 1;
+  string run_id = 2;
+  string unit_id = 3;
+  string boot_id = 4;
+  string session_id = 5;
+  uint64 sequence_number = 6;
+  int64 source_timestamp_ms = 7;
+  uint32 schema_version = 8;
+  string correlation_id = 9;
+}
