@@ -66,6 +66,14 @@ set_source_files_properties(${PROTO_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
 add_library(telemetry_protos STATIC ${PROTO_FILES})
 add_library(telemetry::protos ALIAS telemetry_protos)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+   CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+    target_sources(telemetry_protos
+        PRIVATE
+            cpp/src/core/protobuf_clang_cl_compat.cpp
+    )
+endif()
+
 protobuf_generate(
     TARGET telemetry_protos
     LANGUAGE cpp

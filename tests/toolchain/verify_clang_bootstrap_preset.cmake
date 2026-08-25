@@ -12,6 +12,7 @@ foreach(required_entry IN ITEMS
     "\"name\": \"asan-ubsan\""
     "\"name\": \"tsan\""
     "\"CMAKE_CXX_COMPILER\": \"clang-cl\""
+    "\"CMAKE_MSVC_RUNTIME_LIBRARY\": \"MultiThreaded$<$<CONFIG:Debug>:Debug>\""
     "\"VCPKG_TARGET_TRIPLET\": \"x64-windows-static\""
     "\"TELEMETRY_ENABLE_ASAN\": \"ON\""
     "\"TELEMETRY_ENABLE_UBSAN\": \"ON\""
@@ -29,6 +30,9 @@ if(debug_index EQUAL -1)
 endif()
 
 cmake_path(APPEND REPO_ROOT "build" "clang-bootstrap-verify" OUTPUT_VARIABLE verification_build_dir)
+
+# The preset check owns this directory and must not inherit a prior toolchain cache.
+file(REMOVE_RECURSE "${verification_build_dir}")
 
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
