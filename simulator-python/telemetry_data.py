@@ -166,9 +166,9 @@ class TelemetryGenerator:
         message.event.fuel_remaining = self._rng.uniform(0.0, 100.0)
         message.event.equipment_temperature_c = self._rng.uniform(-20.0, 120.0)
         message.event.connectivity_quality = self._rng.uniform(0.0, 1.0)
-        message.event.health_flags.temperature_warning = self._rng.choice([True, False])
-        message.event.health_flags.connectivity_degraded = self._rng.choice([True, False])
-        message.event.health_flags.maintenance_required = self._rng.choice([True, False])
+        message.event.health_flags.temperature_warning = self._rng.random() < 0.05
+        message.event.health_flags.connectivity_degraded = self._rng.random() < 0.1
+        message.event.health_flags.maintenance_required = self._rng.random() < 0.2
         message.event.status = self._rng.choice(
             [
                 telemetry_event_pb2.UNIT_STATUS_AVAILABLE,
