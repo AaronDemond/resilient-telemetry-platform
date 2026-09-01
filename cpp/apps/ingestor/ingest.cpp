@@ -172,10 +172,6 @@ void report_status(const char* action, natsStatus status) {
 }
 
 bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject) {
-    if (js_GetStreamInfo(nullptr, js, stream_name, nullptr, nullptr) == NATS_OK) {
-        return true;
-    }
-
     jsStreamConfig stream_config;
     natsStatus status = jsStreamConfig_Init(&stream_config);
     if (status != NATS_OK) {
@@ -183,7 +179,6 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
         return false;
     }
 
-    // Keep the test stream narrow and predictable for a single telemetry payload.
     const char* subjects[] = {subject};
     stream_config.Name = stream_name;
     stream_config.Subjects = subjects;
@@ -192,7 +187,32 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
     stream_config.Discard = js_DiscardOld;
     stream_config.Storage = js_FileStorage;
     stream_config.Replicas = 1;
-    stream_config.MaxMsgs = 1;
+    stream_config.MaxMsgs = -1;
+    stream_config.MaxBytes = -1;
+
+    const bool stream_exists = js_GetStreamInfo(nullptr, js, stream_name, nullptr, nullptr) == NATS_OK;
+    if (stream_exists) {
+        status = js_UpdateStream(nullptr, js, &stream_config, nullptr, nullptr);
+        if (status == NATS_OK || js_GetStreamInfo(nullptr, js, stream_name, nullptr, nullptr) == NATS_OK) {
+            return true;
+        }
+
+        std::fprintf(
+            stderr,
+            "js_UpdateStream failed for %s; deleting stale stream and recreating it.\n",
+            stream_name);
+    }
+
+    status = js_AddStream(nullptr, js, &stream_config, nullptr, nullptr);
+    if (status == NATS_OK || js_GetStreamInfo(nullptr, js, stream_name, nullptr, nullptr) == NATS_OK) {
+        return true;
+    }
+
+    std::fprintf(
+        stderr,
+        "js_AddStream failed for %s; deleting stale stream and recreating it.\n",
+        stream_name);
+    js_DeleteStream(js, stream_name, nullptr, nullptr);
 
     status = js_AddStream(nullptr, js, &stream_config, nullptr, nullptr);
     if (status == NATS_OK || js_GetStreamInfo(nullptr, js, stream_name, nullptr, nullptr) == NATS_OK) {
@@ -233,6 +253,11 @@ bool receive_store_and_print_message(
     MessageHandle message(nullptr, natsMsg_Destroy);
     natsMsg* raw_message = nullptr;
     status = natsSubscription_NextMsg(&raw_message, subscription.get(), 30000);
+    if (status == NATS_TIMEOUT) {
+        // A timeout means the ingestor is still alive but no message arrived yet.
+        // Keep waiting for the next telemetry message instead of shutting down.
+        return true;
+    }
     if (status != NATS_OK) {
         report_status("natsSubscription_NextMsg", status);
         return false;
@@ -298,11 +323,15 @@ int run_ingestor(const char* nats_url, const char* stream_name, const char* subj
             return 1;
         }
 
-        if (!receive_store_and_print_message(jetstream.get(), stream_name, subject, database)) {
-            return 1;
+        std::printf("Listening for telemetry on %s...\n", subject);
+        while (true) {
+            // Stay subscribed forever so the ingestor can accept any incoming message
+            // and write each one to Postgres without exiting after the first payload.
+            const bool ok = receive_store_and_print_message(jetstream.get(), stream_name, subject, database);
+            if (!ok) {
+                std::fprintf(stderr, "Message ingest loop failed; continuing to listen for new messages.\n");
+            }
         }
-
-        return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Ingestor failed: %s\n", error.what());
         return 1;

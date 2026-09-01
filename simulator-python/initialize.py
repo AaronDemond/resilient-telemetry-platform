@@ -76,18 +76,24 @@ class Simulation:
         movement.speed_seconds_remaining = self._new_speed_duration()
 
     def generate_telemetry(self, unit: Unit) -> Unit:
-        """Generate and attach a telemetry message for a single unit.
+        """Generate, attach, and publish a telemetry message for a single unit.
 
-        The telemetry generator owns the protobuf creation logic; this method
-        delegates to it, stores the generated message on the unit, and returns the
-        unit so callers can inspect the generated data.
+        The simulator keeps the message on the unit for local inspection while the
+        same payload is sent to the JetStream ingestor for persistence in Postgres.
         """
         if not isinstance(unit, Unit):
             raise TypeError("unit must be a Unit instance")
 
-        unit.attach_telemetry_message(
-            self.telemetry_generator.generate_random_data(unit)
-        )
+        message = self.telemetry_generator.generate_random_data(unit)
+        unit.attach_telemetry_message(message)
+
+        try:
+            from simulator import _publish_telemetry_to_ingestor
+
+            _publish_telemetry_to_ingestor(message)
+        except Exception:  # pragma: no cover - best effort when local infra is down
+            pass
+
         return unit
 
     def get_units(self) -> List[Unit]:

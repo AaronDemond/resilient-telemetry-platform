@@ -8,10 +8,107 @@ fields we add for testing.
 
 from __future__ import annotations
 
+import asyncio
+import os
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Protocol, cast
 
 from google.protobuf.message import Message
+
+
+def _load_dotenv_values() -> dict[str, str]:
+    """Load repo-local .env values for local simulator/ingestor wiring."""
+    values: dict[str, str] = {}
+    project_root = Path(__file__).resolve().parent.parent
+    for candidate in (project_root / ".env", Path.cwd() / ".env"):
+        if not candidate.is_file():
+            continue
+
+        for raw_line in candidate.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"')
+            if key:
+                values[key] = value
+
+    return values
+
+
+def _resolve_environment_value(name: str, default: str) -> str:
+    """Prefer the process environment, then the repo-local .env values."""
+    value = os.environ.get(name)
+    if value:
+        return value
+
+    value = _load_dotenv_values().get(name)
+    if value:
+        return value
+
+    return default
+
+
+def _publish_telemetry_to_ingestor(message: Message) -> None:
+    """Best-effort publish of a generated message to the JetStream ingestor."""
+    try:
+        from nats.aio.client import Client as NATS
+        from nats.js.api import RetentionPolicy, StorageType, StreamConfig
+        from nats.js.errors import NotFoundError
+    except ModuleNotFoundError:
+        return
+
+    nats_url = _resolve_environment_value("TELEMETRY_NATS_URL", "nats://127.0.0.1:14222")
+    stream_name = _resolve_environment_value("TELEMETRY_TEST_STREAM", "TELEMETRY_TEST_STREAM")
+    subject = _resolve_environment_value("TELEMETRY_TEST_SUBJECT", "telemetry.test.ingestor")
+
+    async def _publish() -> None:
+        nc = NATS()
+        try:
+            await nc.connect(servers=[nats_url], name="telemetry-simulator")
+            js = nc.jetstream()
+            config = StreamConfig(
+                name=stream_name,
+                subjects=[subject],
+                retention=RetentionPolicy.LIMITS,
+                storage=StorageType.FILE,
+                max_msgs=-1,
+                max_bytes=-1,
+            )
+
+            try:
+                info = await js.stream_info(stream_name)
+                current_config = info.config
+                if (
+                    current_config.subjects != [subject]
+                    or current_config.max_msgs != -1
+                    or current_config.max_bytes != -1
+                ):
+                    await js.update_stream(stream_name, config)
+            except NotFoundError:
+                await js.add_stream(config)
+
+            await js.publish(subject, message.SerializeToString())
+        finally:
+            await nc.close()
+
+    try:
+        asyncio.run(_publish())
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_publish())
+        finally:
+            loop.close()
+    except Exception as exc:  # pragma: no cover - best effort for local dev
+        print(
+            f"Telemetry publish skipped: {exc}",
+            file=sys.stderr,
+        )
 
 
 class TelemetryEnvelope(Protocol):
