@@ -1,4 +1,7 @@
-add_executable(ingestor main.cpp)
+add_executable(ingestor
+    main.cpp
+    ingest.cpp
+)
 add_executable(telemetry::ingestor ALIAS ingestor)
 
 

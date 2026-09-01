@@ -1,5 +1,7 @@
-add_library(postgres_adapter STATIC 
-        postgres_adapter.cpp
+find_package(libpqxx CONFIG REQUIRED)
+
+add_library(postgres_adapter STATIC
+    postgres_adapter.cpp
 )
 
 
@@ -8,6 +10,7 @@ add_library(telemetry::postgres_adapter ALIAS postgres_adapter)
 target_link_libraries(postgres_adapter
     PUBLIC
         telemetry::core
+    libpqxx::pqxx
 )
 
 target_include_directories(postgres_adapter

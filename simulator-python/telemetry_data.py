@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import random
 from importlib import import_module
+from pathlib import Path
+import sys
 from typing import Any
 
 from google.protobuf.message import Message
@@ -21,6 +24,33 @@ def _load_generated_module(module_name: str) -> Any:
             "telemetry_proto_python CMake target and add the active build's "
             "generated/python directory to PYTHONPATH."
         ) from error
+
+
+def _generated_python_directory_has_telemetry_modules(candidate: Path) -> bool:
+    """Return True when a build tree contains the generated telemetry stubs."""
+    telemetry_event_module = candidate / "telemetry" / "v1" / "telemetry_event_pb2.py"
+    telemetry_message_module = candidate / "telemetry" / "v1" / "telemetry_message_pb2.py"
+    return telemetry_event_module.is_file() and telemetry_message_module.is_file()
+
+
+def _bootstrap_generated_python_path() -> None:
+    """Add a generated protobuf directory if the workspace has already built one."""
+    override = os.environ.get("TELEMETRY_PROTO_PYTHON_DIR")
+    if override:
+        candidate = Path(override)
+        if candidate.is_dir() and _generated_python_directory_has_telemetry_modules(candidate):
+            sys.path.insert(0, str(candidate))
+            return
+
+    project_root = Path(__file__).resolve().parent.parent
+    for build_root in (project_root / "build", project_root / "cpp" / "build"):
+        for candidate in sorted(build_root.glob("*/generated/python")):
+            if candidate.is_dir() and _generated_python_directory_has_telemetry_modules(candidate):
+                sys.path.insert(0, str(candidate))
+                return
+
+
+_bootstrap_generated_python_path()
 
 
 telemetry_event_pb2 = _load_generated_module("telemetry.v1.telemetry_event_pb2")

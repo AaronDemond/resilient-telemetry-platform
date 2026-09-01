@@ -1,4 +1,5 @@
 services:
+  # Local NATS broker for telemetry transport; JetStream remains enabled and ready for stream setup.
   nats:
     image: nats:2.14-alpine
     command:
@@ -10,13 +11,23 @@ services:
     volumes:
       - nats-data:/data
       - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget -q -O - http://127.0.0.1:8222/healthz > /dev/null"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
+  # Postgres remains available for future ingestion/database wiring; this dev default keeps local startup simple.
   postgres:
     image: postgres:18-alpine
     environment:
       POSTGRES_DB: telemetry
       POSTGRES_USER: telemetry
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD} 
+     # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-telemetry}
     ports:
       - "127.0.0.1:15432:5432"
     volumes:

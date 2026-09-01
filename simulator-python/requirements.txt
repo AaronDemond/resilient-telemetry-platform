@@ -1,1 +1,2 @@
 protobuf==6.33.4
+nats-py==2.15.0
