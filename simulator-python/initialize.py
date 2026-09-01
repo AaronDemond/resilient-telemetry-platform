@@ -15,8 +15,8 @@ class Simulation:
     """Own an independent, deterministic simulation run."""
 
     DEFAULT_UPDATE_INTERVAL_SECONDS = 1.0
-    MIN_SPEED = 0.01
-    MAX_SPEED = 0.05
+    MIN_SPEED = 1
+    MAX_SPEED = 5
     MIN_DIRECTION_DURATION_SECONDS = 20.0
     MAX_DIRECTION_DURATION_SECONDS = 60.0
     MIN_SPEED_DURATION_SECONDS = 15.0

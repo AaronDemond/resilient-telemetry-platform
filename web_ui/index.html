@@ -81,6 +81,154 @@
         color: var(--muted);
       }
 
+      .map-panel {
+        background: var(--panel);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 18px;
+      }
+
+      .panel-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .panel-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .panel-note {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .map-shell {
+        position: relative;
+        height: 520px;
+        overflow: hidden;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background:
+          linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(3, 7, 18, 0.98)),
+          repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.11) 0, rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 10%),
+          repeating-linear-gradient(90deg, rgba(148, 163, 184, 0.11) 0, rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 10%);
+      }
+
+      .map-shell::before {
+        content: '0,0';
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        color: var(--muted);
+        font-size: 11px;
+        z-index: 1;
+      }
+
+      .map-shell::after {
+        content: '100,100';
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        color: var(--muted);
+        font-size: 11px;
+        z-index: 1;
+      }
+
+      .map-empty {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 14px;
+        z-index: 0;
+      }
+
+      .map-units {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+      }
+
+      .unit-square {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        border-radius: 4px;
+        border: 2px solid rgba(15, 23, 42, 0.9);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
+      }
+
+      .unit-square.ok {
+        background: var(--ok);
+      }
+
+      .unit-square.warn {
+        background: var(--warn);
+      }
+
+      .unit-square.returning {
+        background: var(--accent);
+      }
+
+      .unit-square.err {
+        background: var(--err);
+      }
+
+      .unit-square.has-flags {
+        box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.65);
+      }
+
+      .unit-tooltip {
+        position: absolute;
+        left: 50%;
+        top: calc(100% + 6px);
+        transform: translateX(-50%);
+        padding: 3px 6px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: var(--text);
+        font-size: 10px;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .map-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .legend-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      .legend-swatch.available { background: var(--ok); }
+      .legend-swatch.en-route { background: var(--warn); }
+      .legend-swatch.returning { background: var(--accent); }
+      .legend-swatch.flags { background: rgba(248, 113, 113, 0.75); }
+
       .table-wrap {
         overflow-x: auto;
         background: var(--panel);
@@ -138,6 +286,7 @@
 
       .ok { background: rgba(52, 211, 153, 0.15); color: var(--ok); }
       .warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+      .returning { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
       .err { background: rgba(248, 113, 113, 0.14); color: var(--err); }
     </style>
   </head>
@@ -152,6 +301,23 @@
       </div>
 
       <div id="status" class="status">Ready.</div>
+
+      <section class="map-panel">
+        <div class="panel-header">
+          <h2>Unit Map</h2>
+          <div class="panel-note">100x100 view derived from latitude and longitude</div>
+        </div>
+        <div class="map-shell" id="mapShell">
+          <div class="map-empty" id="mapEmpty">Loading map data...</div>
+          <div class="map-units" id="mapUnits"></div>
+        </div>
+        <div class="map-legend" aria-label="Map legend">
+          <div class="legend-item"><span class="legend-swatch available"></span>UNIT_STATUS_AVAILABLE</div>
+          <div class="legend-item"><span class="legend-swatch en-route"></span>UNIT_STATUS_EN_ROUTE</div>
+          <div class="legend-item"><span class="legend-swatch returning"></span>UNIT_STATUS_RETURNING</div>
+          <div class="legend-item"><span class="legend-swatch flags"></span>Health flag active</div>
+        </div>
+      </section>
 
       <div class="table-wrap">
         <table>
@@ -180,6 +346,95 @@
       const statusEl = document.getElementById('status');
       const unitIdEl = document.getElementById('unitId');
       const loadBtn = document.getElementById('loadBtn');
+      const mapUnitsEl = document.getElementById('mapUnits');
+      const mapEmptyEl = document.getElementById('mapEmpty');
+
+      let refreshTimer = null;
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function statusInfoFromValue(statusValue) {
+        switch (statusValue) {
+          case 1:
+            return { text: 'UNIT_STATUS_AVAILABLE', className: 'ok' };
+          case 2:
+            return { text: 'UNIT_STATUS_EN_ROUTE', className: 'warn' };
+          case 3:
+            return { text: 'UNIT_STATUS_RETURNING', className: 'returning' };
+          default:
+            return { text: 'UNKNOWN', className: 'err' };
+        }
+      }
+
+      function hasHealthFlags(row) {
+        return Boolean(row.temperature_warning || row.connectivity_degraded || row.maintenance_required);
+      }
+
+      function healthFlagList(row) {
+        const flags = [];
+        if (row.temperature_warning) flags.push('temperature_warning');
+        if (row.connectivity_degraded) flags.push('connectivity_degraded');
+        if (row.maintenance_required) flags.push('maintenance_required');
+        return flags;
+      }
+
+      function latitudeToMapY(latitude) {
+        const numericLatitude = Number(latitude ?? 0);
+        return clamp(100 - (((numericLatitude + 90) / 180) * 100), 0, 100);
+      }
+
+      function longitudeToMapX(longitude) {
+        const numericLongitude = Number(longitude ?? 0);
+        return clamp(((numericLongitude + 180) / 360) * 100, 0, 100);
+      }
+
+      function latestUnits(rows) {
+        const seen = new Map();
+
+        for (const row of rows) {
+          if (!row.unit_id || seen.has(row.unit_id)) {
+            continue;
+          }
+
+          seen.set(row.unit_id, row);
+        }
+
+        return Array.from(seen.values());
+      }
+
+      function renderMap(rows) {
+        if (!Array.isArray(rows)) {
+          mapUnitsEl.innerHTML = '';
+          mapEmptyEl.textContent = 'No telemetry yet.';
+          mapEmptyEl.style.display = 'flex';
+          return;
+        }
+
+        const units = latestUnits(rows);
+        mapUnitsEl.innerHTML = '';
+
+        if (units.length === 0) {
+          mapEmptyEl.textContent = 'No telemetry yet.';
+          mapEmptyEl.style.display = 'flex';
+          return;
+        }
+
+        mapEmptyEl.style.display = 'none';
+
+        for (const row of units) {
+          const statusInfo = statusInfoFromValue(Number(row.status ?? 0));
+          const square = document.createElement('div');
+          const unitFlags = healthFlagList(row);
+
+          square.className = `unit-square ${statusInfo.className}${unitFlags.length > 0 ? ' has-flags' : ''}`;
+          square.style.left = `${longitudeToMapX(row.longitude)}%`;
+          square.style.top = `${latitudeToMapY(row.latitude)}%`;
+          square.title = `${row.unit_id ?? 'unknown'} | ${statusInfo.text}${unitFlags.length > 0 ? ` | ${unitFlags.join(', ')}` : ''}`;
+          mapUnitsEl.appendChild(square);
+        }
+      }
 
       async function fetchUnits() {
         const id = unitIdEl.value.trim();
@@ -200,6 +455,7 @@
           }
 
           const data = await response.json();
+          renderMap(data);
           renderRows(data);
           statusEl.textContent = `Loaded ${Array.isArray(data) ? data.length : 0} telemetry rows.`;
           statusEl.className = 'status';
@@ -207,6 +463,9 @@
           statusEl.textContent = `Error: ${error.message}`;
           statusEl.className = 'status err';
           rowsEl.innerHTML = '';
+          mapUnitsEl.innerHTML = '';
+          mapEmptyEl.textContent = 'Map unavailable.';
+          mapEmptyEl.style.display = 'flex';
         }
       }
 
@@ -221,13 +480,7 @@
         for (const row of rows) {
           const tr = document.createElement('tr');
 
-          const statusValue = Number(row.status ?? 0);
-          const statusMap = {
-            1: { text: 'UNIT_STATUS_AVAILABLE', className: 'ok' },
-            2: { text: 'UNIT_STATUS_EN_ROUTE', className: 'warn' },
-            3: { text: 'UNIT_STATUS_RETURNING', className: 'warn' },
-          };
-          const statusInfo = statusMap[statusValue] ?? { text: 'UNKNOWN', className: 'err' };
+          const statusInfo = statusInfoFromValue(Number(row.status ?? 0));
           const healthFlags = [];
           if (row.temperature_warning) healthFlags.push('temperature_warning');
           if (row.connectivity_degraded) healthFlags.push('connectivity_degraded');
@@ -263,6 +516,12 @@
       });
 
       fetchUnits();
+      refreshTimer = window.setInterval(fetchUnits, 5000);
+      window.addEventListener('beforeunload', () => {
+        if (refreshTimer !== null) {
+          window.clearInterval(refreshTimer);
+        }
+      });
     </script>
   </body>
 </html>

@@ -18,7 +18,7 @@ from initialize import initialize_simulation
 
 
 def main() -> int:
-    simulation = initialize_simulation(num_units=3, seed=42)
+    simulation = initialize_simulation(num_units=3, seed=55)
     success_count = 0
 
     for step in range(1, 11):
