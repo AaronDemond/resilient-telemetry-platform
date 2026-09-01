@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telemetry Units</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-alt: #1f2937;
+        --accent: #38bdf8;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --err: #f87171;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, var(--bg), #020617);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 32px auto;
+        padding: 20px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .toolbar h1 {
+        margin: 0;
+        font-size: 2rem;
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      input, button {
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+
+      input {
+        background: var(--panel);
+        color: var(--text);
+        min-width: 220px;
+      }
+
+      button {
+        background: var(--accent);
+        color: #082f49;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .status {
+        background: var(--panel);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        color: var(--muted);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        background: var(--panel);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 13px;
+      }
+
+      th {
+        background: var(--panel-alt);
+        color: var(--muted);
+      }
+
+      tr:hover {
+        background: rgba(56, 189, 248, 0.05);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .sub-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .mini-badge {
+        display: inline-block;
+        padding: 3px 6px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.12);
+        color: var(--text);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .ok { background: rgba(52, 211, 153, 0.15); color: var(--ok); }
+      .warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+      .err { background: rgba(248, 113, 113, 0.14); color: var(--err); }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="toolbar">
+        <h1>Telemetry Units</h1>
+        <div class="controls">
+          <input id="unitId" type="text" placeholder="Filter by unit id (optional)" />
+          <button id="loadBtn">Load telemetry</button>
+        </div>
+      </div>
+
+      <div id="status" class="status">Ready.</div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Unit</th>
+              <th>Run</th>
+              <th>Received</th>
+              <th>Status</th>
+              <th>Health</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Fuel</th>
+              <th>Temp C</th>
+              <th>Connectivity</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const rowsEl = document.getElementById('rows');
+      const statusEl = document.getElementById('status');
+      const unitIdEl = document.getElementById('unitId');
+      const loadBtn = document.getElementById('loadBtn');
+
+      async function fetchUnits() {
+        const id = unitIdEl.value.trim();
+        const url = id ? `http://127.0.0.1:8080/api/v1/units?id=${encodeURIComponent(id)}` : 'http://127.0.0.1:8080/api/v1/units';
+
+        statusEl.textContent = 'Loading telemetry...';
+        statusEl.className = 'status';
+
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {'Content-Type': 'application/json'}
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+
+          const data = await response.json();
+          renderRows(data);
+          statusEl.textContent = `Loaded ${Array.isArray(data) ? data.length : 0} telemetry rows.`;
+          statusEl.className = 'status';
+        } catch (error) {
+          statusEl.textContent = `Error: ${error.message}`;
+          statusEl.className = 'status err';
+          rowsEl.innerHTML = '';
+        }
+      }
+
+      function renderRows(rows) {
+        rowsEl.innerHTML = '';
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+          rowsEl.innerHTML = '<tr><td colspan="10">No telemetry records found.</td></tr>';
+          return;
+        }
+
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+
+          const statusValue = Number(row.status ?? 0);
+          const statusMap = {
+            1: { text: 'UNIT_STATUS_AVAILABLE', className: 'ok' },
+            2: { text: 'UNIT_STATUS_EN_ROUTE', className: 'warn' },
+            3: { text: 'UNIT_STATUS_RETURNING', className: 'warn' },
+          };
+          const statusInfo = statusMap[statusValue] ?? { text: 'UNKNOWN', className: 'err' };
+          const healthFlags = [];
+          if (row.temperature_warning) healthFlags.push('temperature_warning');
+          if (row.connectivity_degraded) healthFlags.push('connectivity_degraded');
+          if (row.maintenance_required) healthFlags.push('maintenance_required');
+
+          const healthMarkup = healthFlags.length > 0
+            ? `<div class="sub-badges">${healthFlags.map((flag) => `<span class="mini-badge">${flag}</span>`).join('')}</div>`
+            : '<div class="sub-badges"><span class="mini-badge">healthy</span></div>';
+
+          tr.innerHTML = `
+            <td>${row.id ?? ''}</td>
+            <td>${row.unit_id ?? ''}</td>
+            <td>${row.run_id ?? ''}</td>
+            <td>${row.received_at ?? ''}</td>
+            <td><span class="badge ${statusInfo.className}">${statusInfo.text}</span></td>
+            <td>${healthMarkup}</td>
+            <td>${Number(row.latitude ?? 0).toFixed(4)}</td>
+            <td>${Number(row.longitude ?? 0).toFixed(4)}</td>
+            <td>${Number(row.fuel_remaining ?? 0).toFixed(2)}</td>
+            <td>${Number(row.equipment_temperature_c ?? 0).toFixed(2)}</td>
+            <td>${Number(row.connectivity_quality ?? 0).toFixed(2)}</td>
+          `;
+
+          rowsEl.appendChild(tr);
+        }
+      }
+
+      loadBtn.addEventListener('click', fetchUnits);
+      unitIdEl.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          fetchUnits();
+        }
+      });
+
+      fetchUnits();
+    </script>
+  </body>
+</html>

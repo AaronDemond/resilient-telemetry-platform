@@ -42,6 +42,8 @@ endif()
 include(cmake/TelemetryInstrumentation.cmake)
 
 find_package(Protobuf CONFIG REQUIRED)
+find_package(Drogon CONFIG REQUIRED)
+find_package(JsonCpp CONFIG REQUIRED)
 
 set(PROTO_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/proto")
 set(PROTO_CPP_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/cpp")

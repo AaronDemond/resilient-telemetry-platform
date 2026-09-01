@@ -110,16 +110,17 @@ std::string resolve_postgres_setting(
     std::initializer_list<const char*> env_names,
     std::initializer_list<const char*> dotenv_names,
     const char* fallback) {
-    for (const char* env_name : env_names) {
-        if (const char* value = std::getenv(env_name); value != nullptr && value[0] != '\0') {
-            return value;
-        }
-    }
-
+    // Prefer the repo-local connection settings so stale shells cannot redirect ingestion.
     for (const char* dotenv_name : dotenv_names) {
         const auto it = dotenv_values.find(dotenv_name);
         if (it != dotenv_values.end() && !it->second.empty()) {
             return it->second;
+        }
+    }
+
+    for (const char* env_name : env_names) {
+        if (const char* value = std::getenv(env_name); value != nullptr && value[0] != '\0') {
+            return value;
         }
     }
 
