@@ -99,6 +99,51 @@ class SimulationBehaviorTest(unittest.TestCase):
         simulation.generate_telemetry(unit)
         self.assertAlmostEqual(unit.get_telemetry_message().event.longitude, -165.6)
 
+    def test_default_map_center_maps_to_equator_and_prime_meridian(self) -> None:
+        """The default simulator center must produce zero latitude and longitude."""
+        simulation = initialize_simulation(num_units=1, seed=42)
+        unit = simulation.get_units()[0]
+        unit.position.x = unit.position.area_width / 2.0
+        unit.position.y = unit.position.area_height / 2.0
+
+        simulation.generate_telemetry(unit)
+        message = unit.get_telemetry_message()
+
+        self.assertAlmostEqual(message.event.latitude, 0.0)
+        self.assertAlmostEqual(message.event.longitude, 0.0)
+
+    def test_seeded_simulations_spawn_random_positions(self) -> None:
+        """Seeds should still produce randomized initial unit positions."""
+        simulation = initialize_simulation(num_units=15, seed=535)
+        unit = simulation.get_units()[0]
+
+        self.assertGreaterEqual(unit.position.x, 0.0)
+        self.assertLessEqual(unit.position.x, unit.position.area_width)
+        self.assertGreaterEqual(unit.position.y, 0.0)
+        self.assertLessEqual(unit.position.y, unit.position.area_height)
+        self.assertNotEqual((unit.position.x, unit.position.y), (50.0, 50.0))
+
+    def test_status_and_health_flags_hold_for_at_least_five_iterations(self) -> None:
+        """Transient state should remain stable for a minimum of five iterations."""
+        simulation = initialize_simulation(num_units=1, seed=42)
+        unit = simulation.get_units()[0]
+        generator = simulation.telemetry_generator
+
+        generator._status_by_unit[unit.unit_id] = 1
+        generator._status_hold_remaining[unit.unit_id] = 5
+        for _ in range(5):
+            self.assertEqual(generator._status_for_unit(unit.unit_id), 1)
+
+        generator._health_flags_by_unit[unit.unit_id] = {
+            "temperature_warning": True,
+            "connectivity_degraded": False,
+            "maintenance_required": True,
+        }
+        generator._health_hold_remaining[unit.unit_id] = 5
+        for _ in range(5):
+            flags = generator._health_flags_for_unit(unit.unit_id)
+            self.assertTrue(any(flags.values()))
+
     def test_direction_and_speed_change_only_after_duration_expires(self) -> None:
         """Movement values must persist until their individual timers expire."""
         simulation = initialize_simulation(num_units=1, seed=42)

@@ -12,8 +12,9 @@
         --accent: #38bdf8;
         --text: #e5e7eb;
         --muted: #9ca3af;
-        --ok: #34d399;
-        --warn: #fbbf24;
+        --available: #8b5cf6;
+        --en-route: #22c55e;
+        --returning: #facc15;
         --err: #f87171;
       }
 
@@ -131,7 +132,7 @@
       }
 
       .map-shell::after {
-        content: '100,100';
+        content: '120,120';
         position: absolute;
         right: 10px;
         top: 10px;
@@ -157,26 +158,50 @@
         z-index: 2;
       }
 
-      .unit-square {
+      .unit-marker {
         position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+        z-index: 3;
+      }
+
+      .unit-square {
+        position: relative;
         width: 18px;
         height: 18px;
-        transform: translate(-50%, -50%);
         border-radius: 4px;
         border: 2px solid rgba(15, 23, 42, 0.9);
         box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
       }
 
+      .unit-id-label {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        color: var(--text);
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
       .unit-square.ok {
-        background: var(--ok);
+        background: var(--available);
       }
 
       .unit-square.warn {
-        background: var(--warn);
+        background: var(--en-route);
       }
 
       .unit-square.returning {
-        background: var(--accent);
+        background: var(--returning);
       }
 
       .unit-square.err {
@@ -224,9 +249,9 @@
         display: inline-block;
       }
 
-      .legend-swatch.available { background: var(--ok); }
-      .legend-swatch.en-route { background: var(--warn); }
-      .legend-swatch.returning { background: var(--accent); }
+      .legend-swatch.available { background: var(--available); }
+      .legend-swatch.en-route { background: var(--en-route); }
+      .legend-swatch.returning { background: var(--returning); }
       .legend-swatch.flags { background: rgba(248, 113, 113, 0.75); }
 
       .table-wrap {
@@ -284,9 +309,9 @@
         letter-spacing: 0.02em;
       }
 
-      .ok { background: rgba(52, 211, 153, 0.15); color: var(--ok); }
-      .warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
-      .returning { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+      .ok { background: rgba(139, 92, 246, 0.15); color: var(--available); }
+      .warn { background: rgba(34, 197, 94, 0.15); color: var(--en-route); }
+      .returning { background: rgba(250, 204, 21, 0.18); color: var(--returning); }
       .err { background: rgba(248, 113, 113, 0.14); color: var(--err); }
     </style>
   </head>
@@ -305,7 +330,7 @@
       <section class="map-panel">
         <div class="panel-header">
           <h2>Unit Map</h2>
-          <div class="panel-note">100x100 view derived from latitude and longitude</div>
+          <div class="panel-note">120x120 view derived from latitude and longitude</div>
         </div>
         <div class="map-shell" id="mapShell">
           <div class="map-empty" id="mapEmpty">Loading map data...</div>
@@ -350,6 +375,7 @@
       const mapEmptyEl = document.getElementById('mapEmpty');
 
       let refreshTimer = null;
+      let selectedUnitId = null;
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -382,12 +408,20 @@
 
       function latitudeToMapY(latitude) {
         const numericLatitude = Number(latitude ?? 0);
-        return clamp(100 - (((numericLatitude + 90) / 180) * 100), 0, 100);
+        const mapSize = 120;
+        const padding = 6;
+        // Convert geographic coordinates to 120 map units, then to CSS percent.
+        const mapY = mapSize - (((numericLatitude + 90) / 180) * mapSize);
+        return (clamp(mapY, padding, mapSize - padding) / mapSize) * 100;
       }
 
       function longitudeToMapX(longitude) {
         const numericLongitude = Number(longitude ?? 0);
-        return clamp(((numericLongitude + 180) / 360) * 100, 0, 100);
+        const mapSize = 120;
+        const padding = 6;
+        // Convert geographic coordinates to 120 map units, then to CSS percent.
+        const mapX = ((numericLongitude + 180) / 360) * mapSize;
+        return (clamp(mapX, padding, mapSize - padding) / mapSize) * 100;
       }
 
       function latestUnits(rows) {
@@ -425,26 +459,53 @@
 
         for (const row of units) {
           const statusInfo = statusInfoFromValue(Number(row.status ?? 0));
+          const marker = document.createElement('div');
           const square = document.createElement('div');
+          const label = document.createElement('div');
           const unitFlags = healthFlagList(row);
 
+          marker.className = 'unit-marker';
+          marker.style.left = `${longitudeToMapX(row.longitude)}%`;
+          marker.style.top = `${latitudeToMapY(row.latitude)}%`;
+          marker.style.cursor = 'pointer';
+          marker.title = `${row.unit_id ?? 'unknown'} | ${statusInfo.text}${unitFlags.length > 0 ? ` | ${unitFlags.join(', ')}` : ''}`;
+
           square.className = `unit-square ${statusInfo.className}${unitFlags.length > 0 ? ' has-flags' : ''}`;
-          square.style.left = `${longitudeToMapX(row.longitude)}%`;
-          square.style.top = `${latitudeToMapY(row.latitude)}%`;
-          square.title = `${row.unit_id ?? 'unknown'} | ${statusInfo.text}${unitFlags.length > 0 ? ` | ${unitFlags.join(', ')}` : ''}`;
-          mapUnitsEl.appendChild(square);
+
+          label.className = 'unit-id-label';
+          label.textContent = row.unit_id ?? 'unknown';
+
+          marker.addEventListener('click', () => {
+            const unitId = row.unit_id ?? '';
+            if (!unitId) {
+              return;
+            }
+            unitIdEl.value = unitId;
+            selectedUnitId = unitId;
+            fetchUnits(unitId);
+          });
+
+          marker.appendChild(square);
+          marker.appendChild(label);
+          mapUnitsEl.appendChild(marker);
         }
       }
 
-      async function fetchUnits() {
-        const id = unitIdEl.value.trim();
-        const url = id ? `http://127.0.0.1:8080/api/v1/units?id=${encodeURIComponent(id)}` : 'http://127.0.0.1:8080/api/v1/units';
+      async function fetchUnits(unitIdOverride = null) {
+        const id = (unitIdOverride ?? unitIdEl.value.trim());
+        selectedUnitId = id || null;
+        if (selectedUnitId) {
+          unitIdEl.value = selectedUnitId;
+        }
+
+        const listUrl = 'http://127.0.0.1:8080/api/v1/units';
+        const unitUrl = selectedUnitId ? `${listUrl}?id=${encodeURIComponent(selectedUnitId)}` : listUrl;
 
         statusEl.textContent = 'Loading telemetry...';
         statusEl.className = 'status';
 
         try {
-          const response = await fetch(url, {
+          const response = await fetch(unitUrl, {
             method: 'GET',
             headers: {'Content-Type': 'application/json'}
           });
@@ -455,9 +516,26 @@
           }
 
           const data = await response.json();
-          renderMap(data);
-          renderRows(data);
-          statusEl.textContent = `Loaded ${Array.isArray(data) ? data.length : 0} telemetry rows.`;
+          const orderedRows = Array.isArray(data)
+            ? [...data].sort((a, b) => new Date(b.received_at ?? 0) - new Date(a.received_at ?? 0))
+            : [];
+
+          const mapRows = await fetch(listUrl)
+            .then((mapResponse) => {
+              if (!mapResponse.ok) {
+                return [];
+              }
+              return mapResponse.json();
+            })
+            .catch(() => []);
+
+          const compactMapRows = Array.isArray(mapRows)
+            ? [...mapRows].sort((a, b) => new Date(b.received_at ?? 0) - new Date(a.received_at ?? 0))
+            : [];
+
+          renderMap(compactMapRows);
+          renderRows(orderedRows);
+          statusEl.textContent = `Loaded ${orderedRows.length} telemetry rows${selectedUnitId ? ` for ${selectedUnitId}` : ''}.`;
           statusEl.className = 'status';
         } catch (error) {
           statusEl.textContent = `Error: ${error.message}`;
@@ -477,7 +555,9 @@
           return;
         }
 
-        for (const row of rows) {
+        const orderedRows = [...rows].sort((a, b) => new Date(b.received_at ?? 0) - new Date(a.received_at ?? 0));
+
+        for (const row of orderedRows) {
           const tr = document.createElement('tr');
 
           const statusInfo = statusInfoFromValue(Number(row.status ?? 0));

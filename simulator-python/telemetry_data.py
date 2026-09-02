@@ -159,6 +159,55 @@ class TelemetryGenerator:
         self._run_id = f"run-{self._rng.randint(1, 9999):04d}"
         self._boot_ids: dict[str, str] = {}
         self._sequence_numbers: dict[str, int] = {}
+        self._status_by_unit: dict[str, int] = {}
+        self._status_hold_remaining: dict[str, int] = {}
+        self._health_flags_by_unit: dict[str, dict[str, bool]] = {}
+        self._health_hold_remaining: dict[str, int] = {}
+
+    def _status_for_unit(self, unit_id: str) -> int:
+        """Keep available/returning units stable for a minimum of five iterations."""
+        remaining = self._status_hold_remaining.get(unit_id, 0)
+        current_status = self._status_by_unit.get(unit_id)
+        if remaining > 0 and current_status is not None:
+            self._status_hold_remaining[unit_id] = remaining - 1
+            return current_status
+
+        statuses = [
+            telemetry_event_pb2.UNIT_STATUS_AVAILABLE,
+            telemetry_event_pb2.UNIT_STATUS_EN_ROUTE,
+            telemetry_event_pb2.UNIT_STATUS_RETURNING,
+        ]
+        status_probabilities = [
+            0.01,
+            0.98,
+            0.01,
+        ]
+        selected_status = self._rng.choices(statuses, weights=status_probabilities, k=1)[0]
+        self._status_by_unit[unit_id] = selected_status
+        self._status_hold_remaining[unit_id] = (
+            5 if selected_status in (
+                telemetry_event_pb2.UNIT_STATUS_AVAILABLE,
+                telemetry_event_pb2.UNIT_STATUS_RETURNING,
+            ) else 0
+        )
+        return selected_status
+
+    def _health_flags_for_unit(self, unit_id: str) -> dict[str, bool]:
+        """Keep non-healthy states active for at least five iterations."""
+        remaining = self._health_hold_remaining.get(unit_id, 0)
+        current_flags = self._health_flags_by_unit.get(unit_id)
+        if remaining > 0 and current_flags is not None:
+            self._health_hold_remaining[unit_id] = remaining - 1
+            return current_flags
+
+        selected_flags = {
+            "temperature_warning": self._rng.random() < 0.05,
+            "connectivity_degraded": self._rng.random() < 0.05,
+            "maintenance_required": self._rng.random() < 0.05,
+        }
+        self._health_flags_by_unit[unit_id] = selected_flags
+        self._health_hold_remaining[unit_id] = 5 if any(selected_flags.values()) else 0
+        return selected_flags
 
     def generate_random_data(self, unit: Unit) -> Message:
         """Generate a validated protobuf message describing one unit."""
@@ -196,16 +245,12 @@ class TelemetryGenerator:
         message.event.fuel_remaining = self._rng.uniform(0.0, 100.0)
         message.event.equipment_temperature_c = self._rng.uniform(-20.0, 120.0)
         message.event.connectivity_quality = self._rng.uniform(0.0, 1.0)
-        message.event.health_flags.temperature_warning = self._rng.random() < 0.05
-        message.event.health_flags.connectivity_degraded = self._rng.random() < 0.1
-        message.event.health_flags.maintenance_required = self._rng.random() < 0.2
-        message.event.status = self._rng.choice(
-            [
-                telemetry_event_pb2.UNIT_STATUS_AVAILABLE,
-                telemetry_event_pb2.UNIT_STATUS_EN_ROUTE,
-                telemetry_event_pb2.UNIT_STATUS_RETURNING,
-            ]
-        )
+
+        health_flags = self._health_flags_for_unit(unit_id)
+        message.event.health_flags.temperature_warning = health_flags["temperature_warning"]
+        message.event.health_flags.connectivity_degraded = health_flags["connectivity_degraded"]
+        message.event.health_flags.maintenance_required = health_flags["maintenance_required"]
+        message.event.status = self._status_for_unit(unit_id)
         message.event.correlation_id = message.envelope.correlation_id
 
         return TelemetryData(message).get_message()

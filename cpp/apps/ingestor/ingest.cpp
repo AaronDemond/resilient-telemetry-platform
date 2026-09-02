@@ -21,6 +21,7 @@ namespace {
 constexpr const char* kDefaultNatsUrl = "nats://127.0.0.1:14222";
 constexpr const char* kDefaultStreamName = "TELEMETRY_TEST_STREAM";
 constexpr const char* kDefaultSubject = "telemetry.test.ingestor";
+constexpr const char* kTelemetryConsumerName = "telemetry_ingestor";
 constexpr const char* kDefaultPostgresHost = "127.0.0.1";
 constexpr const char* kDefaultPostgresPort = "15432";
 constexpr const char* kDefaultPostgresDatabase = "telemetry";
@@ -225,35 +226,11 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
 }
 
 bool receive_store_and_print_message(
-    jsCtx* js,
-    const char* stream_name,
-    const char* subject,
+    natsSubscription* subscription,
     pqxx::connection& database) {
-    jsSubOptions sub_options;
-    natsStatus status = jsSubOptions_Init(&sub_options);
-    if (status != NATS_OK) {
-        report_status("jsSubOptions_Init", status);
-        return false;
-    }
-
-    // Deliver only messages that arrive after this test subscriber starts.
-    sub_options.Stream = stream_name;
-    sub_options.Config.DeliverPolicy = js_DeliverNew;
-    sub_options.Config.AckPolicy = js_AckNone;
-
-    SubscriptionHandle subscription(nullptr, natsSubscription_Destroy);
-    natsSubscription* raw_subscription = nullptr;
-    status = js_SubscribeSync(&raw_subscription, js, subject, nullptr, &sub_options, nullptr);
-    if (status != NATS_OK) {
-        report_status("js_SubscribeSync", status);
-        return false;
-    }
-
-    subscription.reset(raw_subscription);
-
     MessageHandle message(nullptr, natsMsg_Destroy);
     natsMsg* raw_message = nullptr;
-    status = natsSubscription_NextMsg(&raw_message, subscription.get(), 30000);
+    natsStatus status = natsSubscription_NextMsg(&raw_message, subscription, 30000);
     if (status == NATS_TIMEOUT) {
         // A timeout means the ingestor is still alive but no message arrived yet.
         // Keep waiting for the next telemetry message instead of shutting down.
@@ -278,6 +255,13 @@ bool receive_store_and_print_message(
         const auto telemetry_data = telemetry::core::TelemetryData::deserialize(payload);
 
         telemetry::adapters::postgres::store_telemetry_message(database, telemetry_data, payload);
+
+        // Acknowledge only after Postgres commits so unpersisted messages are redelivered.
+        status = natsMsg_AckSync(message.get(), nullptr, nullptr);
+        if (status != NATS_OK) {
+            report_status("natsMsg_AckSync", status);
+            return false;
+        }
 
         const auto telemetry_message = telemetry_data.to_proto();
         std::printf(
@@ -324,11 +308,39 @@ int run_ingestor(const char* nats_url, const char* stream_name, const char* subj
             return 1;
         }
 
+        jsSubOptions sub_options;
+        status = jsSubOptions_Init(&sub_options);
+        if (status != NATS_OK) {
+            report_status("jsSubOptions_Init", status);
+            return 1;
+        }
+
+        // One durable subscription remains active between messages and restarts.
+        sub_options.Stream = stream_name;
+        sub_options.Config.Durable = kTelemetryConsumerName;
+        sub_options.Config.DeliverPolicy = js_DeliverNew;
+        sub_options.Config.AckPolicy = js_AckExplicit;
+        sub_options.ManualAck = true;
+
+        SubscriptionHandle subscription(nullptr, natsSubscription_Destroy);
+        natsSubscription* raw_subscription = nullptr;
+        status = js_SubscribeSync(
+            &raw_subscription,
+            jetstream.get(),
+            subject,
+            nullptr,
+            &sub_options,
+            nullptr);
+        if (status != NATS_OK) {
+            report_status("js_SubscribeSync", status);
+            return 1;
+        }
+        subscription.reset(raw_subscription);
+
         std::printf("Listening for telemetry on %s...\n", subject);
         while (true) {
-            // Stay subscribed forever so the ingestor can accept any incoming message
-            // and write each one to Postgres without exiting after the first payload.
-            const bool ok = receive_store_and_print_message(jetstream.get(), stream_name, subject, database);
+            // Retain this subscription to avoid missing publishes between receive calls.
+            const bool ok = receive_store_and_print_message(subscription.get(), database);
             if (!ok) {
                 std::fprintf(stderr, "Message ingest loop failed; continuing to listen for new messages.\n");
             }

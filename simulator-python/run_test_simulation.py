@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 import time
 from pathlib import Path
@@ -18,13 +19,14 @@ from initialize import initialize_simulation
 
 
 def main() -> int:
-    simulation = initialize_simulation(num_units=15, seed=535)
+    seed = random.randint(0, 1_000_000)
+    simulation = initialize_simulation(num_units=15, seed=seed)
     success_count = 0
 
     for step in range(1, 11):
         try:
             units = simulation.run_iteration(elapsed_seconds=1.0)
-            print(f"\nStep {step}: iteration succeeded")
+            print(f"\nStep {step}: iteration succeeded (seed={seed})")
 
             for unit in units:
                 simulation.generate_telemetry(unit)
@@ -47,6 +49,7 @@ def main() -> int:
             return 1
 
     print(f"\nSimulation complete: {success_count} telemetry messages generated across 10 steps.")
+    print(f"Seed used: {seed}")
     print("All iterations succeeded.")
     input("Press Enter to close this window... ")
     return 0
