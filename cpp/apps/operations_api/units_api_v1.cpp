@@ -187,6 +187,16 @@ void UnitsController::get_units(
         const std::string requested_run_id = req->getParameter("run_id");
         const std::string requested_unit_id = req->getParameter("id");
 
+        if (requested_run_id.empty()) {
+            Json::Value error_payload(Json::objectValue);
+            error_payload["error"] = "run_id is required";
+            auto response = drogon::HttpResponse::newHttpJsonResponse(error_payload);
+            response->setStatusCode(drogon::k400BadRequest);
+            apply_cors_headers(response);
+            callback(response);
+            return;
+        }
+
         pqxx::connection database{build_postgres_connection_string()};
 
         std::string query = R"sql(

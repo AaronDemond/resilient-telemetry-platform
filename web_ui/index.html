@@ -51,6 +51,51 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        align-items: end;
+      }
+
+      .toolbar .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .toolbar .field-label {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .control-panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: end;
+        margin: 16px 0 20px;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field-label {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .control-panel input {
+        min-width: 140px;
       }
 
       input, button {
@@ -320,10 +365,48 @@
       <div class="toolbar">
         <h1>Telemetry Units</h1>
         <div class="controls">
-          <input id="runId" type="text" placeholder="Run id (required)" />
-          <input id="unitId" type="text" placeholder="Filter by unit id (optional)" />
+          <div class="field-group">
+            <label class="field-label" for="runId">Run ID</label>
+            <input id="runId" type="text" placeholder="Run id (required)" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="unitId">Unit ID filter</label>
+            <input id="unitId" type="text" placeholder="Filter by unit id (optional)" />
+          </div>
           <button id="loadBtn">Load telemetry</button>
         </div>
+      </div>
+
+      <div class="control-panel">
+        <div class="field-group">
+          <label class="field-label" for="seedInput">Seed</label>
+          <input id="seedInput" type="number" min="0" max="4294967295" placeholder="Seed" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="unitCountInput">Units</label>
+          <input id="unitCountInput" type="number" min="1" max="500" placeholder="Units" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="intervalMsInput">Interval (ms)</label>
+          <input id="intervalMsInput" type="number" min="250" max="3600000" placeholder="Interval ms" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="iterationCountInput">Iterations</label>
+          <input id="iterationCountInput" type="number" min="1" max="100000" placeholder="Iterations" />
+        </div>
+        <button id="startRunBtn">Start run</button>
+        <button id="pauseRunBtn">Pause</button>
+        <button id="stopRunBtn">Stop</button>
+        <button id="continueRunBtn">Continue</button>
+        <div class="field-group">
+          <label class="field-label" for="compareLeftRunId">Compare left run</label>
+          <input id="compareLeftRunId" type="text" placeholder="Compare left run" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="compareRightRunId">Compare right run</label>
+          <input id="compareRightRunId" type="text" placeholder="Compare right run" />
+        </div>
+        <button id="compareRunsBtn">Compare runs</button>
       </div>
 
       <div id="status" class="status">Ready.</div>
@@ -379,6 +462,159 @@
       let refreshTimer = null;
       let selectedRunId = null;
       let selectedUnitId = null;
+      const controlApiBase = (
+        window.location.origin && window.location.origin !== 'null'
+          ? window.location.origin
+          : 'http://127.0.0.1:8765'
+      );
+
+      function stopPolling() {
+        if (refreshTimer !== null) {
+          window.clearInterval(refreshTimer);
+          refreshTimer = null;
+        }
+      }
+
+      function startPolling() {
+        if (refreshTimer !== null || !selectedRunId) {
+          return;
+        }
+        refreshTimer = window.setInterval(() => {
+          if (selectedRunId) {
+            fetchUnits();
+          }
+        }, 5000);
+      }
+
+      async function callControlApi(path, method = 'GET', body = null) {
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body !== null) {
+          options.body = JSON.stringify(body);
+        }
+        const response = await fetch(`${controlApiBase}${path}`, options);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+        return payload;
+      }
+
+      async function startRun() {
+        try {
+          const payload = {
+            seed: Number(document.getElementById('seedInput').value),
+            unit_count: Number(document.getElementById('unitCountInput').value),
+            interval_ms: Number(document.getElementById('intervalMsInput').value),
+            iteration_count: Number(document.getElementById('iterationCountInput').value),
+          };
+
+          const result = await callControlApi('/api/v1/simulations', 'POST', payload);
+          const nextRunId = result.run_id || result[0]?.run_id || '';
+          runIdEl.value = nextRunId;
+          selectedRunId = nextRunId;
+          selectedUnitId = null;
+          unitIdEl.value = '';
+          statusEl.textContent = `Started run ${selectedRunId}.`;
+          startPolling();
+          await fetchUnits();
+        } catch (error) {
+          statusEl.textContent = `Start run failed: ${error.message}`;
+          statusEl.className = 'status err';
+        }
+      }
+
+      async function currentRunId() {
+        const explicitId = (runIdEl.value.trim() || selectedRunId || '').trim();
+        if (explicitId) {
+          runIdEl.value = explicitId;
+          selectedRunId = explicitId;
+          return explicitId;
+        }
+
+        try {
+          const current = await callControlApi('/api/v1/simulations/current', 'GET');
+          if (current && current.run_id) {
+            runIdEl.value = current.run_id;
+            selectedRunId = current.run_id;
+            return current.run_id;
+          }
+        } catch (error) {
+          return '';
+        }
+
+        return '';
+      }
+
+      async function pauseRun() {
+        let runId = await currentRunId();
+        if (!runId) {
+          statusEl.textContent = 'No active run to pause.';
+          return;
+        }
+        try {
+          const result = await callControlApi('/api/v1/simulations/pause', 'POST');
+          runIdEl.value = runId;
+          selectedRunId = runId;
+          statusEl.textContent = `Paused run ${runId}: ${result.state || 'paused'}`;
+        } catch (error) {
+          statusEl.textContent = `Pause failed: ${error.message}`;
+          statusEl.className = 'status err';
+        }
+      }
+
+      async function stopRun() {
+        let runId = await currentRunId();
+        if (!runId) {
+          statusEl.textContent = 'No active run to stop.';
+          return;
+        }
+        try {
+          const result = await callControlApi('/api/v1/simulations/stop', 'POST');
+          runIdEl.value = runId;
+          selectedRunId = runId;
+          statusEl.textContent = `Stopped run ${runId}: ${result.state || 'stopped'}`;
+        } catch (error) {
+          statusEl.textContent = `Stop failed: ${error.message}`;
+          statusEl.className = 'status err';
+        }
+      }
+
+      async function continueRun() {
+        const runId = runIdEl.value.trim();
+        if (!runId) {
+          statusEl.textContent = 'Enter a run ID before continuing.';
+          return;
+        }
+        try {
+          const result = await callControlApi(`/api/v1/simulations/${encodeURIComponent(runId)}/continue`, 'POST');
+          selectedRunId = runId;
+          selectedUnitId = null;
+          unitIdEl.value = '';
+          runIdEl.value = runId;
+          startPolling();
+          statusEl.textContent = `Continued run ${runId}: ${result.state || 'running'}`;
+          await fetchUnits();
+        } catch (error) {
+          statusEl.textContent = `Continue failed: ${error.message}`;
+          statusEl.className = 'status err';
+        }
+      }
+
+      async function compareRuns() {
+        const leftRunId = document.getElementById('compareLeftRunId').value.trim();
+        const rightRunId = document.getElementById('compareRightRunId').value.trim();
+        if (!leftRunId || !rightRunId) {
+          statusEl.textContent = 'Add both run IDs before comparison.';
+          return;
+        }
+        try {
+          const result = await callControlApi('/api/v1/simulations/compare', 'POST', { left_run_id: leftRunId, right_run_id: rightRunId });
+          statusEl.textContent = `Comparison result: ${result.reason || 'unknown'}`;
+        } catch (error) {
+          statusEl.textContent = `Comparison failed: ${error.message}`;
+          statusEl.className = 'status err';
+        }
+      }
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -495,7 +731,12 @@
       }
 
       async function fetchUnits(unitIdOverride = null) {
-        const runId = runIdEl.value.trim();
+        const currentId = await currentRunId();
+        const runId = (runIdEl.value.trim() || currentId || selectedRunId || '').trim();
+        if (runId) {
+          runIdEl.value = runId;
+          selectedRunId = runId;
+        }
         const id = (unitIdOverride ?? unitIdEl.value.trim());
 
         if (!runId) {
@@ -506,6 +747,7 @@
           mapUnitsEl.innerHTML = '';
           mapEmptyEl.textContent = 'Select a run ID to load telemetry.';
           mapEmptyEl.style.display = 'flex';
+          stopPolling();
           statusEl.textContent = 'Select a run ID to load telemetry.';
           statusEl.className = 'status';
           return;
@@ -614,6 +856,12 @@
         }
       }
 
+      document.getElementById('startRunBtn').addEventListener('click', startRun);
+      document.getElementById('pauseRunBtn').addEventListener('click', pauseRun);
+      document.getElementById('stopRunBtn').addEventListener('click', stopRun);
+      document.getElementById('continueRunBtn').addEventListener('click', continueRun);
+      document.getElementById('compareRunsBtn').addEventListener('click', compareRuns);
+
       loadBtn.addEventListener('click', fetchUnits);
       runIdEl.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
@@ -633,12 +881,15 @@
         }
       });
 
-      fetchUnits();
-      refreshTimer = window.setInterval(() => fetchUnits(), 5000);
+      selectedRunId = null;
+      selectedUnitId = null;
+      runIdEl.value = '';
+      unitIdEl.value = '';
+      stopPolling();
+      mapEmptyEl.textContent = 'Waiting for a run selection.';
+      mapEmptyEl.style.display = 'flex';
       window.addEventListener('beforeunload', () => {
-        if (refreshTimer !== null) {
-          window.clearInterval(refreshTimer);
-        }
+        stopPolling();
       });
     </script>
   </body>

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import math
-import random
 import time
 import uuid
 from typing import Callable, List
 
+from deterministic_rng import StablePRNG
 from simulator import MovementState, Position, Unit
 from telemetry_data import TelemetryGenerator
 
@@ -53,7 +53,7 @@ class Simulation:
         self.area_width = area_width
         self.area_height = area_height
         self.run_id = self._normalize_run_id(run_id)
-        self.rng = random.Random(seed)
+        self.rng = StablePRNG(seed)
         self.telemetry_generator = TelemetryGenerator(rng=self.rng, run_id=self.run_id)
         self.units: List[Unit] = []
         self.initialize_units()
@@ -116,7 +116,7 @@ class Simulation:
 
     def initialize_units(self) -> None:
         """Reset and populate units from the simulation seed."""
-        self.rng = random.Random(self.seed)
+        self.rng = StablePRNG(self.seed)
         self.telemetry_generator = TelemetryGenerator(rng=self.rng, run_id=self.run_id)
         self.units = []
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import random
 import uuid
 from importlib import import_module
 from pathlib import Path
@@ -12,6 +11,7 @@ from typing import Any
 
 from google.protobuf.message import Message
 
+from deterministic_rng import StablePRNG
 from simulator import Unit
 
 
@@ -170,10 +170,10 @@ class TelemetryGenerator:
         self,
         seed: int = 0,
         *,
-        rng: random.Random | None = None,
+        rng: StablePRNG | None = None,
         run_id: str | None = None,
     ) -> None:
-        self._rng = rng if rng is not None else random.Random(seed)
+        self._rng = rng if rng is not None else StablePRNG(seed)
         self._run_id = self._normalize_run_id(run_id)
         self._boot_ids: dict[str, str] = {}
         self._sequence_numbers: dict[str, int] = {}
