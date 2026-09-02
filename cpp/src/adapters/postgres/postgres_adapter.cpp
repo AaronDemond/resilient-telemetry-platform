@@ -67,6 +67,11 @@ void ensure_telemetry_schema(pqxx::connection& connection) {
     )sql");
 
     transaction.exec(R"sql(
+        CREATE INDEX IF NOT EXISTS telemetry_messages_run_received_at_idx
+            ON telemetry_messages (run_id, received_at DESC)
+    )sql");
+
+    transaction.exec(R"sql(
         CREATE INDEX IF NOT EXISTS telemetry_messages_unit_boot_sequence_idx
             ON telemetry_messages (unit_id, boot_id, sequence_number)
     )sql");

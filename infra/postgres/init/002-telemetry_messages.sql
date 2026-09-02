@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS telemetry_messages (
 CREATE INDEX IF NOT EXISTS telemetry_messages_message_id_idx
     ON telemetry_messages (message_id);
 
+CREATE INDEX IF NOT EXISTS telemetry_messages_run_received_at_idx
+    ON telemetry_messages (run_id, received_at DESC);
+
 CREATE INDEX IF NOT EXISTS telemetry_messages_unit_boot_sequence_idx
     ON telemetry_messages (unit_id, boot_id, sequence_number);
 

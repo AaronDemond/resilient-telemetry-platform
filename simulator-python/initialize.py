@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random
 import time
+import uuid
 from typing import Callable, List
 
 from simulator import MovementState, Position, Unit
@@ -22,6 +23,17 @@ class Simulation:
     MIN_SPEED_DURATION_SECONDS = 15.0
     MAX_SPEED_DURATION_SECONDS = 45.0
 
+    @staticmethod
+    def _normalize_run_id(run_id: str | None) -> str:
+        """Generate a canonical UUID or validate an explicit override."""
+        candidate = str(run_id).strip() if run_id is not None else str(uuid.uuid4())
+        if not candidate:
+            raise ValueError("run_id must not be empty")
+        try:
+            return str(uuid.UUID(candidate))
+        except ValueError as exc:
+            raise ValueError("run_id must be a valid UUID string") from exc
+
     def __init__(
         self,
         num_units: int = 0,
@@ -29,6 +41,7 @@ class Simulation:
         *,
         area_width: float = 100.0,
         area_height: float = 100.0,
+        run_id: str | None = None,
     ) -> None:
         if num_units < 0:
             raise ValueError("num_units must be non-negative")
@@ -39,8 +52,9 @@ class Simulation:
         self.seed = seed
         self.area_width = area_width
         self.area_height = area_height
+        self.run_id = self._normalize_run_id(run_id)
         self.rng = random.Random(seed)
-        self.telemetry_generator = TelemetryGenerator(rng=self.rng)
+        self.telemetry_generator = TelemetryGenerator(rng=self.rng, run_id=self.run_id)
         self.units: List[Unit] = []
         self.initialize_units()
 
@@ -103,7 +117,7 @@ class Simulation:
     def initialize_units(self) -> None:
         """Reset and populate units from the simulation seed."""
         self.rng = random.Random(self.seed)
-        self.telemetry_generator = TelemetryGenerator(rng=self.rng)
+        self.telemetry_generator = TelemetryGenerator(rng=self.rng, run_id=self.run_id)
         self.units = []
 
         for index in range(self.num_units):
@@ -199,6 +213,7 @@ def initialize_simulation(
     *,
     area_width: float = 100.0,
     area_height: float = 100.0,
+    run_id: str | None = None,
 ) -> Simulation:
     """Create and return an independent initialized simulation run."""
     return Simulation(
@@ -206,6 +221,7 @@ def initialize_simulation(
         seed=seed,
         area_width=area_width,
         area_height=area_height,
+        run_id=run_id,
     )
 
 

@@ -184,6 +184,7 @@ void UnitsController::get_units(
     }
 
     try {
+        const std::string requested_run_id = req->getParameter("run_id");
         const std::string requested_unit_id = req->getParameter("id");
 
         pqxx::connection database{build_postgres_connection_string()};
@@ -216,12 +217,15 @@ void UnitsController::get_units(
 
         pqxx::result rows;
         pqxx::work transaction{database};
-        if (requested_unit_id.empty()) {
-            query += " ORDER BY received_at DESC";
+        if (requested_run_id.empty()) {
+            query += " WHERE 1 = 0";
             rows = transaction.exec(query);
+        } else if (requested_unit_id.empty()) {
+            query += " WHERE run_id = $1 ORDER BY received_at DESC";
+            rows = transaction.exec_params(query, requested_run_id);
         } else {
-            query += " WHERE unit_id = $1 ORDER BY received_at DESC";
-            rows = transaction.exec_params(query, requested_unit_id);
+            query += " WHERE run_id = $1 AND unit_id = $2 ORDER BY received_at DESC";
+            rows = transaction.exec_params(query, requested_run_id, requested_unit_id);
         }
         transaction.commit();
 

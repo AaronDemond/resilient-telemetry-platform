@@ -27,7 +27,7 @@ This avoids the common mistake of validating only one language and assuming the 
 The `Envelope` is the outer wrapper for all telemetry and request traffic. It provides identity, ordering, and trace metadata. The following fields are required for a valid v1 envelope:
 
 - `message_id`
-- `run_id`
+- `run_id` (UUID v4 value generated once per simulation and shared by all messages in that run)
 - `unit_id`
 - `boot_id`
 - `sequence_number`

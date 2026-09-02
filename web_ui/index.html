@@ -320,6 +320,7 @@
       <div class="toolbar">
         <h1>Telemetry Units</h1>
         <div class="controls">
+          <input id="runId" type="text" placeholder="Run id (required)" />
           <input id="unitId" type="text" placeholder="Filter by unit id (optional)" />
           <button id="loadBtn">Load telemetry</button>
         </div>
@@ -369,12 +370,14 @@
     <script>
       const rowsEl = document.getElementById('rows');
       const statusEl = document.getElementById('status');
+      const runIdEl = document.getElementById('runId');
       const unitIdEl = document.getElementById('unitId');
       const loadBtn = document.getElementById('loadBtn');
       const mapUnitsEl = document.getElementById('mapUnits');
       const mapEmptyEl = document.getElementById('mapEmpty');
 
       let refreshTimer = null;
+      let selectedRunId = null;
       let selectedUnitId = null;
 
       function clamp(value, min, max) {
@@ -492,14 +495,37 @@
       }
 
       async function fetchUnits(unitIdOverride = null) {
+        const runId = runIdEl.value.trim();
         const id = (unitIdOverride ?? unitIdEl.value.trim());
-        selectedUnitId = id || null;
-        if (selectedUnitId) {
-          unitIdEl.value = selectedUnitId;
+
+        if (!runId) {
+          selectedRunId = null;
+          selectedUnitId = null;
+          unitIdEl.value = '';
+          rowsEl.innerHTML = '';
+          mapUnitsEl.innerHTML = '';
+          mapEmptyEl.textContent = 'Select a run ID to load telemetry.';
+          mapEmptyEl.style.display = 'flex';
+          statusEl.textContent = 'Select a run ID to load telemetry.';
+          statusEl.className = 'status';
+          return;
         }
 
-        const listUrl = 'http://127.0.0.1:8080/api/v1/units';
-        const unitUrl = selectedUnitId ? `${listUrl}?id=${encodeURIComponent(selectedUnitId)}` : listUrl;
+        if (selectedRunId !== runId) {
+          selectedRunId = runId;
+          selectedUnitId = null;
+          unitIdEl.value = '';
+        } else {
+          selectedUnitId = id || null;
+          if (selectedUnitId === null) {
+            unitIdEl.value = '';
+          } else {
+            unitIdEl.value = selectedUnitId;
+          }
+        }
+
+        const listUrl = `http://127.0.0.1:8080/api/v1/units?run_id=${encodeURIComponent(selectedRunId)}`;
+        const unitUrl = selectedUnitId ? `${listUrl}&id=${encodeURIComponent(selectedUnitId)}` : listUrl;
 
         statusEl.textContent = 'Loading telemetry...';
         statusEl.className = 'status';
@@ -520,22 +546,22 @@
             ? [...data].sort((a, b) => new Date(b.received_at ?? 0) - new Date(a.received_at ?? 0))
             : [];
 
-          const mapRows = await fetch(listUrl)
-            .then((mapResponse) => {
-              if (!mapResponse.ok) {
-                return [];
-              }
-              return mapResponse.json();
-            })
-            .catch(() => []);
+          const mapRowsResponse = await fetch(listUrl, {
+            method: 'GET',
+            headers: {'Content-Type': 'application/json'}
+          });
+          if (!mapRowsResponse.ok) {
+            throw new Error(`HTTP ${mapRowsResponse.status}: ${await mapRowsResponse.text()}`);
+          }
 
+          const mapRows = await mapRowsResponse.json();
           const compactMapRows = Array.isArray(mapRows)
             ? [...mapRows].sort((a, b) => new Date(b.received_at ?? 0) - new Date(a.received_at ?? 0))
             : [];
 
           renderMap(compactMapRows);
           renderRows(orderedRows);
-          statusEl.textContent = `Loaded ${orderedRows.length} telemetry rows${selectedUnitId ? ` for ${selectedUnitId}` : ''}.`;
+          statusEl.textContent = `Loaded ${orderedRows.length} telemetry rows for run ${selectedRunId}${selectedUnitId ? ` and unit ${selectedUnitId}` : ''}.`;
           statusEl.className = 'status';
         } catch (error) {
           statusEl.textContent = `Error: ${error.message}`;
@@ -589,14 +615,26 @@
       }
 
       loadBtn.addEventListener('click', fetchUnits);
+      runIdEl.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          fetchUnits();
+        }
+      });
       unitIdEl.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           fetchUnits();
         }
       });
 
+      unitIdEl.addEventListener('input', () => {
+        if (!unitIdEl.value.trim()) {
+          selectedUnitId = null;
+          fetchUnits();
+        }
+      });
+
       fetchUnits();
-      refreshTimer = window.setInterval(fetchUnits, 5000);
+      refreshTimer = window.setInterval(() => fetchUnits(), 5000);
       window.addEventListener('beforeunload', () => {
         if (refreshTimer !== null) {
           window.clearInterval(refreshTimer);

@@ -21,6 +21,7 @@ from initialize import initialize_simulation
 def main() -> int:
     seed = random.randint(0, 1_000_000)
     simulation = initialize_simulation(num_units=15, seed=seed)
+    print(f"Simulation run ID: {simulation.run_id}")
     success_count = 0
 
     for step in range(1, 11):

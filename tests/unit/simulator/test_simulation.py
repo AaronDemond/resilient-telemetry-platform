@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import uuid
 
 from initialize import initialize_simulation
 
@@ -98,6 +99,24 @@ class SimulationBehaviorTest(unittest.TestCase):
         self.assertAlmostEqual(unit.position.y, 50.0)
         simulation.generate_telemetry(unit)
         self.assertAlmostEqual(unit.get_telemetry_message().event.longitude, -165.6)
+
+    def test_default_run_ids_are_unique_and_valid_uuids(self) -> None:
+        """Each new simulation should own a unique UUID run ID by default."""
+        simulation_a = initialize_simulation(num_units=1, seed=42)
+        simulation_b = initialize_simulation(num_units=1, seed=42)
+
+        self.assertNotEqual(simulation_a.run_id, simulation_b.run_id)
+        self.assertEqual(uuid.UUID(simulation_a.run_id).version, 4)
+        self.assertEqual(uuid.UUID(simulation_b.run_id).version, 4)
+
+    def test_explicit_run_id_is_reused_across_all_messages(self) -> None:
+        """An explicit run ID should remain stable for the whole simulation."""
+        run_id = "33333333-3333-4333-8333-333333333333"
+        simulation = initialize_simulation(num_units=2, seed=42, run_id=run_id)
+
+        for unit in simulation.get_units():
+            simulation.generate_telemetry(unit)
+            self.assertEqual(unit.get_telemetry_message().envelope.run_id, run_id)
 
     def test_default_map_center_maps_to_equator_and_prime_meridian(self) -> None:
         """The default simulator center must produce zero latitude and longitude."""

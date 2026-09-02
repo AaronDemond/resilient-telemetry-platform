@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import random
+import uuid
 from importlib import import_module
 from pathlib import Path
 import sys
@@ -154,9 +155,26 @@ class TelemetryData:
 class TelemetryGenerator:
     """Generate deterministic, valid telemetry messages for simulation units."""
 
-    def __init__(self, seed: int = 0, *, rng: random.Random | None = None) -> None:
+    @staticmethod
+    def _normalize_run_id(run_id: str | None) -> str:
+        """Coerce a run ID to a canonical UUID string or generate one."""
+        candidate = str(run_id).strip() if run_id is not None else str(uuid.uuid4())
+        if not candidate:
+            raise ValueError("run_id must not be empty")
+        try:
+            return str(uuid.UUID(candidate))
+        except ValueError as exc:
+            raise ValueError("run_id must be a valid UUID string") from exc
+
+    def __init__(
+        self,
+        seed: int = 0,
+        *,
+        rng: random.Random | None = None,
+        run_id: str | None = None,
+    ) -> None:
         self._rng = rng if rng is not None else random.Random(seed)
-        self._run_id = f"run-{self._rng.randint(1, 9999):04d}"
+        self._run_id = self._normalize_run_id(run_id)
         self._boot_ids: dict[str, str] = {}
         self._sequence_numbers: dict[str, int] = {}
         self._status_by_unit: dict[str, int] = {}
@@ -202,8 +220,8 @@ class TelemetryGenerator:
 
         selected_flags = {
             "temperature_warning": self._rng.random() < 0.05,
-            "connectivity_degraded": self._rng.random() < 0.05,
-            "maintenance_required": self._rng.random() < 0.05,
+            "connectivity_degraded": self._rng.random() < 0.01,
+            "maintenance_required": self._rng.random() < 0.01,
         }
         self._health_flags_by_unit[unit_id] = selected_flags
         self._health_hold_remaining[unit_id] = 5 if any(selected_flags.values()) else 0

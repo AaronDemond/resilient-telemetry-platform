@@ -36,8 +36,9 @@ class SimulationSeedTest(unittest.TestCase):
         num_units = 10
         seed = 42
         iterations = 5
-        simulation_a = initialize_simulation(num_units=num_units, seed=seed)
-        simulation_b = initialize_simulation(num_units=num_units, seed=seed)
+        run_id = "11111111-1111-4111-8111-111111111111"
+        simulation_a = initialize_simulation(num_units=num_units, seed=seed, run_id=run_id)
+        simulation_b = initialize_simulation(num_units=num_units, seed=seed, run_id=run_id)
 
         self.assertIsNot(simulation_a, simulation_b)
         self.assertEqual(len(simulation_a.get_units()), num_units)
