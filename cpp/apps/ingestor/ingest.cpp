@@ -1,13 +1,21 @@
 #include "ingest.hpp"
 
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
+#include <utility>
+#include <vector>
 
 #include <pqxx/pqxx>
 
@@ -32,6 +40,48 @@ using ConnectionHandle = std::unique_ptr<natsConnection, void (*)(natsConnection
 using JetStreamHandle = std::unique_ptr<jsCtx, void (*)(jsCtx*)>;
 using SubscriptionHandle = std::unique_ptr<natsSubscription, void (*)(natsSubscription*)>;
 using MessageHandle = std::unique_ptr<natsMsg, void (*)(natsMsg*)>;
+
+struct QueuedMessage {
+    MessageHandle message;
+};
+
+class MessageQueue {
+public:
+    void push(QueuedMessage message) {
+        std::lock_guard lock(mutex_);
+        if (shutdown_) {
+            return;
+        }
+        queue_.push_back(std::move(message));
+        condition_.notify_one();
+    }
+
+    std::optional<QueuedMessage> pop() {
+        std::unique_lock lock(mutex_);
+        condition_.wait(lock, [this] { return shutdown_ || !queue_.empty(); });
+        if (queue_.empty()) {
+            return std::nullopt;
+        }
+
+        QueuedMessage next = std::move(queue_.front());
+        queue_.pop_front();
+        return next;
+    }
+
+    void close() {
+        {
+            std::lock_guard lock(mutex_);
+            shutdown_ = true;
+        }
+        condition_.notify_all();
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable condition_;
+    std::deque<QueuedMessage> queue_;
+    bool shutdown_ = false;
+};
 
 const char* env_or_default(const char* name, const char* fallback) noexcept {
     if (const char* value = std::getenv(name); value != nullptr && value[0] != '\0') {
@@ -95,7 +145,6 @@ std::map<std::string, std::string> load_dotenv_settings() {
             continue;
         }
 
-        // Allow quoted values like "password" without changing the actual secret.
         if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
             value = value.substr(1, value.size() - 2);
         }
@@ -108,18 +157,21 @@ std::map<std::string, std::string> load_dotenv_settings() {
 
 std::string resolve_postgres_setting(
     const std::map<std::string, std::string>& dotenv_values,
-    std::initializer_list<const char*> env_names,
-    std::initializer_list<const char*> dotenv_names,
+    const char* const* env_names,
+    std::size_t env_name_count,
+    const char* const* dotenv_names,
+    std::size_t dotenv_name_count,
     const char* fallback) {
-    // Prefer the repo-local connection settings so stale shells cannot redirect ingestion.
-    for (const char* dotenv_name : dotenv_names) {
+    for (std::size_t i = 0; i < dotenv_name_count; ++i) {
+        const char* dotenv_name = dotenv_names[i];
         const auto it = dotenv_values.find(dotenv_name);
         if (it != dotenv_values.end() && !it->second.empty()) {
             return it->second;
         }
     }
 
-    for (const char* env_name : env_names) {
+    for (std::size_t i = 0; i < env_name_count; ++i) {
+        const char* env_name = env_names[i];
         if (const char* value = std::getenv(env_name); value != nullptr && value[0] != '\0') {
             return value;
         }
@@ -131,40 +183,65 @@ std::string resolve_postgres_setting(
 std::map<std::string, std::string> build_postgres_connection_params() {
     const auto dotenv_values = load_dotenv_settings();
     std::map<std::string, std::string> params;
+
+    const char* host_env_names[] = {"TELEMETRY_PGHOST", "POSTGRES_HOST"};
+    const char* host_dotenv_names[] = {"TELEMETRY_PGHOST", "POSTGRES_HOST"};
     params.emplace(
         "host",
         resolve_postgres_setting(
             dotenv_values,
-            {"TELEMETRY_PGHOST", "POSTGRES_HOST"},
-            {"TELEMETRY_PGHOST", "POSTGRES_HOST"},
+            host_env_names,
+            2,
+            host_dotenv_names,
+            2,
             kDefaultPostgresHost));
+
+    const char* port_env_names[] = {"TELEMETRY_PGPORT", "POSTGRES_PORT"};
+    const char* port_dotenv_names[] = {"TELEMETRY_PGPORT", "POSTGRES_PORT"};
     params.emplace(
         "port",
         resolve_postgres_setting(
             dotenv_values,
-            {"TELEMETRY_PGPORT", "POSTGRES_PORT"},
-            {"TELEMETRY_PGPORT", "POSTGRES_PORT"},
+            port_env_names,
+            2,
+            port_dotenv_names,
+            2,
             kDefaultPostgresPort));
+
+    const char* dbname_env_names[] = {"TELEMETRY_PGDATABASE", "POSTGRES_DB"};
+    const char* dbname_dotenv_names[] = {"TELEMETRY_PGDATABASE", "POSTGRES_DB"};
     params.emplace(
         "dbname",
         resolve_postgres_setting(
             dotenv_values,
-            {"TELEMETRY_PGDATABASE", "POSTGRES_DB"},
-            {"TELEMETRY_PGDATABASE", "POSTGRES_DB"},
+            dbname_env_names,
+            2,
+            dbname_dotenv_names,
+            2,
             kDefaultPostgresDatabase));
+
+    const char* user_env_names[] = {"TELEMETRY_PGUSER", "POSTGRES_USER"};
+    const char* user_dotenv_names[] = {"TELEMETRY_PGUSER", "POSTGRES_USER"};
     params.emplace(
         "user",
         resolve_postgres_setting(
             dotenv_values,
-            {"TELEMETRY_PGUSER", "POSTGRES_USER"},
-            {"TELEMETRY_PGUSER", "POSTGRES_USER"},
+            user_env_names,
+            2,
+            user_dotenv_names,
+            2,
             kDefaultPostgresUser));
+
+    const char* password_env_names[] = {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"};
+    const char* password_dotenv_names[] = {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"};
     params.emplace(
         "password",
         resolve_postgres_setting(
             dotenv_values,
-            {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"},
-            {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"},
+            password_env_names,
+            2,
+            password_dotenv_names,
+            2,
             kDefaultPostgresPassword));
     return params;
 }
@@ -199,10 +276,7 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
             return true;
         }
 
-        std::fprintf(
-            stderr,
-            "js_UpdateStream failed for %s; deleting stale stream and recreating it.\n",
-            stream_name);
+        std::fprintf(stderr, "js_UpdateStream failed for %s; deleting stale stream and recreating it.\n", stream_name);
     }
 
     status = js_AddStream(nullptr, js, &stream_config, nullptr, nullptr);
@@ -210,10 +284,7 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
         return true;
     }
 
-    std::fprintf(
-        stderr,
-        "js_AddStream failed for %s; deleting stale stream and recreating it.\n",
-        stream_name);
+    std::fprintf(stderr, "js_AddStream failed for %s; deleting stale stream and recreating it.\n", stream_name);
     js_DeleteStream(js, stream_name, nullptr, nullptr);
 
     status = js_AddStream(nullptr, js, &stream_config, nullptr, nullptr);
@@ -225,80 +296,90 @@ bool ensure_test_stream(jsCtx* js, const char* stream_name, const char* subject)
     return false;
 }
 
-bool receive_store_and_print_message(
-    natsSubscription* subscription,
-    pqxx::connection& database) {
-    MessageHandle message(nullptr, natsMsg_Destroy);
-    natsMsg* raw_message = nullptr;
-    natsStatus status = natsSubscription_NextMsg(&raw_message, subscription, 30000);
-    if (status == NATS_TIMEOUT) {
-        // A timeout means the ingestor is still alive but no message arrived yet.
-        // Keep waiting for the next telemetry message instead of shutting down.
-        return true;
-    }
-    if (status != NATS_OK) {
-        report_status("natsSubscription_NextMsg", status);
-        return false;
-    }
-
-    message.reset(raw_message);
-
-    const char* payload_data = natsMsg_GetData(message.get());
-    const int payload_length = natsMsg_GetDataLength(message.get());
-    if (payload_data == nullptr || payload_length <= 0) {
-        std::fprintf(stderr, "Received an empty telemetry payload\n");
-        return false;
-    }
-
-    try {
-        const std::string payload(payload_data, static_cast<std::size_t>(payload_length));
-        const auto telemetry_data = telemetry::core::TelemetryData::deserialize(payload);
-
-        telemetry::adapters::postgres::store_telemetry_message(database, telemetry_data, payload);
-
-        // Acknowledge only after Postgres commits so unpersisted messages are redelivered.
-        status = natsMsg_AckSync(message.get(), nullptr, nullptr);
-        if (status != NATS_OK) {
-            report_status("natsMsg_AckSync", status);
-            return false;
+void worker_loop(MessageQueue& queue, pqxx::connection& database) {
+    while (true) {
+        const auto message = queue.pop();
+        if (!message.has_value()) {
+            return;
         }
 
-        const auto telemetry_message = telemetry_data.to_proto();
-        std::printf(
-            "Stored telemetry message on %s for unit %s:\n%s\n",
-            natsMsg_GetSubject(message.get()),
-            telemetry_data.unit_id().c_str(),
-            telemetry_message.DebugString().c_str());
-        return true;
-    } catch (const std::exception& error) {
-        std::fprintf(stderr, "Failed to decode or store telemetry payload: %s\n", error.what());
-        return false;
+        QueuedMessage queued = std::move(message.value());
+        if (!queued.message || !queued.message.get()) {
+            continue;
+        }
+
+        try {
+            const char* payload_data = natsMsg_GetData(queued.message.get());
+            const int payload_length = natsMsg_GetDataLength(queued.message.get());
+            if (payload_data == nullptr || payload_length <= 0) {
+                std::fprintf(stderr, "Received an empty telemetry payload\n");
+                continue;
+            }
+
+            const std::string payload(payload_data, static_cast<std::size_t>(payload_length));
+            const auto telemetry_data = telemetry::core::TelemetryData::deserialize(payload);
+            telemetry::adapters::postgres::store_telemetry_message(database, telemetry_data, payload);
+
+            const natsStatus ack_status = natsMsg_AckSync(queued.message.get(), nullptr, nullptr);
+            if (ack_status != NATS_OK) {
+                report_status("natsMsg_AckSync", ack_status);
+                continue;
+            }
+
+            const auto telemetry_message = telemetry_data.to_proto();
+            std::printf(
+                "Stored telemetry message on %s for unit %s:\n%s\n",
+                natsMsg_GetSubject(queued.message.get()),
+                telemetry_data.unit_id().c_str(),
+                telemetry_message.DebugString().c_str());
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "Failed to decode or store telemetry payload: %s\n", error.what());
+        }
+    }
+}
+
+void receiver_loop(MessageQueue& queue, natsSubscription* subscription) {
+    while (true) {
+        natsMsg* raw_message = nullptr;
+        const natsStatus status = natsSubscription_NextMsg(&raw_message, subscription, 30000);
+        if (status == NATS_TIMEOUT) {
+            continue;
+        }
+
+        if (status != NATS_OK) {
+            report_status("natsSubscription_NextMsg", status);
+            queue.close();
+            return;
+        }
+
+        if (raw_message == nullptr) {
+            continue;
+        }
+
+        queue.push(QueuedMessage{MessageHandle(raw_message, natsMsg_Destroy)});
     }
 }
 
 }  // namespace
 
-int run_ingestor(const char* nats_url, const char* stream_name, const char* subject) {
+int run_ingestor(const char* nats_url, const char* stream_name, const char* subject, std::size_t worker_count) {
     ConnectionHandle connection(nullptr, natsConnection_Destroy);
     JetStreamHandle jetstream(nullptr, jsCtx_Destroy);
 
     try {
         natsConnection* raw_connection = nullptr;
-        natsStatus status = natsConnection_ConnectTo(&raw_connection, nats_url);
-        if (status != NATS_OK) {
-            report_status("natsConnection_ConnectTo", status);
+        const natsStatus connect_status = natsConnection_ConnectTo(&raw_connection, nats_url);
+        if (connect_status != NATS_OK) {
+            report_status("natsConnection_ConnectTo", connect_status);
             return 1;
         }
 
         connection.reset(raw_connection);
 
-        pqxx::connection database{build_postgres_connection_params()};
-        telemetry::adapters::postgres::ensure_telemetry_schema(database);
-
         jsCtx* raw_jetstream = nullptr;
-        status = natsConnection_JetStream(&raw_jetstream, connection.get(), nullptr);
-        if (status != NATS_OK) {
-            report_status("natsConnection_JetStream", status);
+        const natsStatus jetstream_status = natsConnection_JetStream(&raw_jetstream, connection.get(), nullptr);
+        if (jetstream_status != NATS_OK) {
+            report_status("natsConnection_JetStream", jetstream_status);
             return 1;
         }
 
@@ -309,13 +390,12 @@ int run_ingestor(const char* nats_url, const char* stream_name, const char* subj
         }
 
         jsSubOptions sub_options;
-        status = jsSubOptions_Init(&sub_options);
-        if (status != NATS_OK) {
-            report_status("jsSubOptions_Init", status);
+        const natsStatus sub_options_status = jsSubOptions_Init(&sub_options);
+        if (sub_options_status != NATS_OK) {
+            report_status("jsSubOptions_Init", sub_options_status);
             return 1;
         }
 
-        // One durable subscription remains active between messages and restarts.
         sub_options.Stream = stream_name;
         sub_options.Config.Durable = kTelemetryConsumerName;
         sub_options.Config.DeliverPolicy = js_DeliverNew;
@@ -324,26 +404,39 @@ int run_ingestor(const char* nats_url, const char* stream_name, const char* subj
 
         SubscriptionHandle subscription(nullptr, natsSubscription_Destroy);
         natsSubscription* raw_subscription = nullptr;
-        status = js_SubscribeSync(
+        const natsStatus subscribe_status = js_SubscribeSync(
             &raw_subscription,
             jetstream.get(),
             subject,
             nullptr,
             &sub_options,
             nullptr);
-        if (status != NATS_OK) {
-            report_status("js_SubscribeSync", status);
+        if (subscribe_status != NATS_OK) {
+            report_status("js_SubscribeSync", subscribe_status);
             return 1;
         }
         subscription.reset(raw_subscription);
 
-        std::printf("Listening for telemetry on %s...\n", subject);
+        MessageQueue queue;
+        const std::size_t actual_workers = worker_count == 0 ? 1U : worker_count;
+        std::vector<std::unique_ptr<pqxx::connection>> worker_connections;
+        worker_connections.reserve(actual_workers);
+        for (std::size_t index = 0; index < actual_workers; ++index) {
+            worker_connections.emplace_back(std::make_unique<pqxx::connection>(build_postgres_connection_params()));
+            telemetry::adapters::postgres::ensure_telemetry_schema(*worker_connections.back());
+        }
+
+        std::vector<std::thread> workers;
+        workers.reserve(actual_workers);
+        for (std::size_t index = 0; index < actual_workers; ++index) {
+            workers.emplace_back(worker_loop, std::ref(queue), std::ref(*worker_connections[index]));
+        }
+
+        std::thread receiver(receiver_loop, std::ref(queue), subscription.get());
+        std::printf("Listening for telemetry on %s with %zu workers...\n", subject, actual_workers);
+
         while (true) {
-            // Retain this subscription to avoid missing publishes between receive calls.
-            const bool ok = receive_store_and_print_message(subscription.get(), database);
-            if (!ok) {
-                std::fprintf(stderr, "Message ingest loop failed; continuing to listen for new messages.\n");
-            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     } catch (const std::exception& error) {
         std::fprintf(stderr, "Ingestor failed: %s\n", error.what());

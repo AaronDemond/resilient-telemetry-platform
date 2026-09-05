@@ -9,6 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from deterministic_rng import StablePRNG
+from initialize import initialize_simulation
 from simulation_repository import SimulationRepository
 
 
@@ -88,6 +89,62 @@ class StablePRNGTest(unittest.TestCase):
                     checkpoint_json='{}',
                 )
                 self.assertEqual(run['rng_state'], int(Decimal('1.157338211246538E+19')))
+
+    def test_repository_compare_ignores_run_id_when_comparing_same_seed_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / 'simulations.sqlite3'
+            with SimulationRepository(db_path) as repo:
+                left_run_id = '33333333-3333-4333-8333-333333333333'
+                right_run_id = '44444444-4444-4444-8444-444444444444'
+
+                left_sim = initialize_simulation(num_units=2, seed=42, run_id=left_run_id)
+                right_sim = initialize_simulation(num_units=2, seed=42, run_id=right_run_id)
+
+                left_units = left_sim.get_units()
+                right_units = right_sim.get_units()
+                for left_unit, right_unit in zip(left_units, right_units, strict=True):
+                    left_unit = left_sim.generate_telemetry(left_unit)
+                    right_unit = right_sim.generate_telemetry(right_unit)
+                    repo.store_message(
+                        run_id=left_run_id,
+                        iteration_number=1,
+                        unit_id=left_unit.unit_id,
+                        payload=left_unit.get_telemetry_message().SerializeToString(),
+                    )
+                    repo.store_message(
+                        run_id=right_run_id,
+                        iteration_number=1,
+                        unit_id=right_unit.unit_id,
+                        payload=right_unit.get_telemetry_message().SerializeToString(),
+                    )
+
+                repo.create_run(
+                    run_id=left_run_id,
+                    seed=42,
+                    unit_count=2,
+                    interval_ms=1000,
+                    iteration_count=1,
+                    state='completed',
+                    rng_seed=42,
+                    rng_state=left_sim.rng.state,
+                    rng_draw_count=left_sim.rng.draw_count,
+                    checkpoint_json='{}',
+                )
+                repo.create_run(
+                    run_id=right_run_id,
+                    seed=42,
+                    unit_count=2,
+                    interval_ms=1000,
+                    iteration_count=1,
+                    state='completed',
+                    rng_seed=42,
+                    rng_state=right_sim.rng.state,
+                    rng_draw_count=right_sim.rng.draw_count,
+                    checkpoint_json='{}',
+                )
+
+                result = repo.compare_runs(left_run_id, right_run_id)
+                self.assertTrue(result['match'])
 
 
 if __name__ == "__main__":

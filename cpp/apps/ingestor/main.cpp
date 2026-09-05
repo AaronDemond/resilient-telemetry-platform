@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -76,9 +77,10 @@ int main() {
     const auto nats_url = resolve_setting(dotenv_values, "TELEMETRY_NATS_URL", kDefaultNatsUrl);
     const auto stream_name = resolve_setting(dotenv_values, "TELEMETRY_TEST_STREAM", kDefaultStreamName);
     const auto subject = resolve_setting(dotenv_values, "TELEMETRY_TEST_SUBJECT", kDefaultSubject);
+    const auto worker_count_raw = resolve_setting(dotenv_values, "TELEMETRY_INGEST_WORKERS", "4");
+    const auto worker_count = std::max(1, std::stoi(worker_count_raw));
 
-    // Log the resolved transport target so runtime configuration problems are visible.
     std::cout << "Ingestor configured for " << nats_url << " / " << stream_name << " / " << subject
-              << '\n';
-    return telemetry::ingestor::run_ingestor(nats_url.c_str(), stream_name.c_str(), subject.c_str());
+              << " / workers=" << worker_count << '\n';
+    return telemetry::ingestor::run_ingestor(nats_url.c_str(), stream_name.c_str(), subject.c_str(), static_cast<std::size_t>(worker_count));
 }

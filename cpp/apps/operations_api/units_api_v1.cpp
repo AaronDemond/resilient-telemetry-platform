@@ -90,16 +90,20 @@ std::map<std::string, std::string> load_dotenv_values() {
 
 std::string resolve_setting(
     const std::map<std::string, std::string>& dotenv_values,
-    std::initializer_list<const char*> env_names,
-    std::initializer_list<const char*> dotenv_names,
+    const char* const* env_names,
+    std::size_t env_name_count,
+    const char* const* dotenv_names,
+    std::size_t dotenv_name_count,
     const char* fallback) {
-    for (const char* env_name : env_names) {
+    for (std::size_t i = 0; i < env_name_count; ++i) {
+        const char* env_name = env_names[i];
         if (const char* value = std::getenv(env_name); value != nullptr && value[0] != '\0') {
             return value;
         }
     }
 
-    for (const char* dotenv_name : dotenv_names) {
+    for (std::size_t i = 0; i < dotenv_name_count; ++i) {
+        const char* dotenv_name = dotenv_names[i];
         const auto it = dotenv_values.find(dotenv_name);
         if (it != dotenv_values.end() && !it->second.empty()) {
             return it->second;
@@ -112,30 +116,54 @@ std::string resolve_setting(
 std::string build_postgres_connection_string() {
     const auto dotenv_values = load_dotenv_values();
 
+    const char* host_env_names[] = {"TELEMETRY_PGHOST", "POSTGRES_HOST"};
+    const char* host_dotenv_names[] = {"TELEMETRY_PGHOST", "POSTGRES_HOST"};
     const std::string host = resolve_setting(
         dotenv_values,
-        {"TELEMETRY_PGHOST", "POSTGRES_HOST"},
-        {"TELEMETRY_PGHOST", "POSTGRES_HOST"},
+        host_env_names,
+        2,
+        host_dotenv_names,
+        2,
         kDefaultPostgresHost);
+
+    const char* port_env_names[] = {"TELEMETRY_PGPORT", "POSTGRES_PORT"};
+    const char* port_dotenv_names[] = {"TELEMETRY_PGPORT", "POSTGRES_PORT"};
     const std::string port = resolve_setting(
         dotenv_values,
-        {"TELEMETRY_PGPORT", "POSTGRES_PORT"},
-        {"TELEMETRY_PGPORT", "POSTGRES_PORT"},
+        port_env_names,
+        2,
+        port_dotenv_names,
+        2,
         kDefaultPostgresPort);
+
+    const char* dbname_env_names[] = {"TELEMETRY_PGDATABASE", "POSTGRES_DB"};
+    const char* dbname_dotenv_names[] = {"TELEMETRY_PGDATABASE", "POSTGRES_DB"};
     const std::string dbname = resolve_setting(
         dotenv_values,
-        {"TELEMETRY_PGDATABASE", "POSTGRES_DB"},
-        {"TELEMETRY_PGDATABASE", "POSTGRES_DB"},
+        dbname_env_names,
+        2,
+        dbname_dotenv_names,
+        2,
         kDefaultPostgresDatabase);
+
+    const char* user_env_names[] = {"TELEMETRY_PGUSER", "POSTGRES_USER"};
+    const char* user_dotenv_names[] = {"TELEMETRY_PGUSER", "POSTGRES_USER"};
     const std::string user = resolve_setting(
         dotenv_values,
-        {"TELEMETRY_PGUSER", "POSTGRES_USER"},
-        {"TELEMETRY_PGUSER", "POSTGRES_USER"},
+        user_env_names,
+        2,
+        user_dotenv_names,
+        2,
         kDefaultPostgresUser);
+
+    const char* password_env_names[] = {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"};
+    const char* password_dotenv_names[] = {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"};
     const std::string password = resolve_setting(
         dotenv_values,
-        {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"},
-        {"TELEMETRY_PGPASSWORD", "POSTGRES_PASSWORD"},
+        password_env_names,
+        2,
+        password_dotenv_names,
+        2,
         kDefaultPostgresPassword);
 
     return "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;

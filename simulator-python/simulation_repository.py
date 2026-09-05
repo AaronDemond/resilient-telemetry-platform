@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+
+from telemetry_data import TelemetryMessage
 
 
 class SimulationRepository:
@@ -110,6 +113,14 @@ class SimulationRepository:
                 return int(Decimal(text).to_integral_value())
             except InvalidOperation as exc:
                 raise ValueError(f"{field_name} is not a valid integer: {value!r}") from exc
+
+    @staticmethod
+    def _normalized_message_fingerprint(payload: bytes) -> str:
+        """Normalize the run_id field before hashing so equal runs compare cleanly."""
+        message = TelemetryMessage()
+        message.ParseFromString(payload)
+        message.envelope.run_id = "00000000-0000-0000-0000-000000000000"
+        return hashlib.sha256(message.SerializeToString()).hexdigest()
 
     def _timestamp(self) -> str:
         return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -244,8 +255,9 @@ class SimulationRepository:
             ).fetchone()
         return row is not None
 
-    def store_message(self, *, run_id: str, iteration_number: int, unit_id: str, payload: bytes, fingerprint: str, published: int = 0) -> None:
+    def store_message(self, *, run_id: str, iteration_number: int, unit_id: str, payload: bytes, fingerprint: str | None = None, published: int = 0) -> None:
         """Persist generated message bytes for exact comparison and replay."""
+        stored_fingerprint = self._normalized_message_fingerprint(payload) if fingerprint is None else fingerprint
         with self._connect() as connection:
             connection.execute(
                 """
@@ -253,7 +265,7 @@ class SimulationRepository:
                     run_id, iteration_number, unit_id, payload, fingerprint, published
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (run_id, int(iteration_number), unit_id, payload, fingerprint, int(published)),
+                (run_id, int(iteration_number), unit_id, payload, stored_fingerprint, int(published)),
             )
 
     def get_messages_for_run(self, run_id: str) -> list[dict[str, Any]]:
@@ -273,6 +285,13 @@ class SimulationRepository:
             raise KeyError("both run IDs must exist")
         if left["state"] != "completed" or right["state"] != "completed":
             return {"match": False, "reason": "both runs must be completed"}
+        if (
+            left["seed"] != right["seed"]
+            or left["unit_count"] != right["unit_count"]
+            or left["interval_ms"] != right["interval_ms"]
+            or left["iteration_count"] != right["iteration_count"]
+        ):
+            return {"match": False, "reason": "configuration mismatch"}
 
         left_messages = self.get_messages_for_run(left_run_id)
         right_messages = self.get_messages_for_run(right_run_id)
@@ -287,7 +306,9 @@ class SimulationRepository:
         for key in left_by_key:
             left_row = left_by_key[key]
             right_row = right_by_key[key]
-            if left_row["fingerprint"] != right_row["fingerprint"]:
+            left_fingerprint = self._normalized_message_fingerprint(left_row["payload"])
+            right_fingerprint = self._normalized_message_fingerprint(right_row["payload"])
+            if left_fingerprint != right_fingerprint:
                 return {"match": False, "reason": f"mismatch at {key[0]}/{key[1]}"}
         return {"match": True, "reason": "all messages match"}
 

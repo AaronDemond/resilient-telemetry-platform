@@ -481,7 +481,7 @@
         }
         refreshTimer = window.setInterval(() => {
           if (selectedRunId) {
-            fetchUnits();
+            fetchUnits(null, { silent: true });
           }
         }, 5000);
       }
@@ -516,7 +516,7 @@
           unitIdEl.value = '';
           statusEl.textContent = `Started run ${selectedRunId}.`;
           startPolling();
-          await fetchUnits();
+          await fetchUnits(null, { silent: true });
         } catch (error) {
           statusEl.textContent = `Start run failed: ${error.message}`;
           statusEl.className = 'status err';
@@ -593,7 +593,7 @@
           runIdEl.value = runId;
           startPolling();
           statusEl.textContent = `Continued run ${runId}: ${result.state || 'running'}`;
-          await fetchUnits();
+          await fetchUnits(null, { silent: true });
         } catch (error) {
           statusEl.textContent = `Continue failed: ${error.message}`;
           statusEl.className = 'status err';
@@ -721,7 +721,7 @@
             }
             unitIdEl.value = unitId;
             selectedUnitId = unitId;
-            fetchUnits(unitId);
+            fetchUnits(unitId, { silent: false });
           });
 
           marker.appendChild(square);
@@ -730,7 +730,8 @@
         }
       }
 
-      async function fetchUnits(unitIdOverride = null) {
+      async function fetchUnits(unitIdOverride = null, options = {}) {
+        const { silent = false } = options;
         const currentId = await currentRunId();
         const runId = (runIdEl.value.trim() || currentId || selectedRunId || '').trim();
         if (runId) {
@@ -748,8 +749,10 @@
           mapEmptyEl.textContent = 'Select a run ID to load telemetry.';
           mapEmptyEl.style.display = 'flex';
           stopPolling();
-          statusEl.textContent = 'Select a run ID to load telemetry.';
-          statusEl.className = 'status';
+          if (!silent) {
+            statusEl.textContent = 'Select a run ID to load telemetry.';
+            statusEl.className = 'status';
+          }
           return;
         }
 
@@ -769,8 +772,10 @@
         const listUrl = `http://127.0.0.1:8080/api/v1/units?run_id=${encodeURIComponent(selectedRunId)}`;
         const unitUrl = selectedUnitId ? `${listUrl}&id=${encodeURIComponent(selectedUnitId)}` : listUrl;
 
-        statusEl.textContent = 'Loading telemetry...';
-        statusEl.className = 'status';
+        if (!silent) {
+          statusEl.textContent = 'Loading telemetry...';
+          statusEl.className = 'status';
+        }
 
         try {
           const response = await fetch(unitUrl, {
@@ -803,8 +808,10 @@
 
           renderMap(compactMapRows);
           renderRows(orderedRows);
-          statusEl.textContent = `Loaded ${orderedRows.length} telemetry rows for run ${selectedRunId}${selectedUnitId ? ` and unit ${selectedUnitId}` : ''}.`;
-          statusEl.className = 'status';
+          if (!silent) {
+            statusEl.textContent = `Loaded ${orderedRows.length} telemetry rows for run ${selectedRunId}${selectedUnitId ? ` and unit ${selectedUnitId}` : ''}.`;
+            statusEl.className = 'status';
+          }
         } catch (error) {
           statusEl.textContent = `Error: ${error.message}`;
           statusEl.className = 'status err';
@@ -862,22 +869,22 @@
       document.getElementById('continueRunBtn').addEventListener('click', continueRun);
       document.getElementById('compareRunsBtn').addEventListener('click', compareRuns);
 
-      loadBtn.addEventListener('click', fetchUnits);
+      loadBtn.addEventListener('click', () => fetchUnits(null, { silent: false }));
       runIdEl.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-          fetchUnits();
+          fetchUnits(null, { silent: false });
         }
       });
       unitIdEl.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-          fetchUnits();
+          fetchUnits(null, { silent: false });
         }
       });
 
       unitIdEl.addEventListener('input', () => {
         if (!unitIdEl.value.trim()) {
           selectedUnitId = null;
-          fetchUnits();
+          fetchUnits(null, { silent: false });
         }
       });
 
