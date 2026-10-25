@@ -1,7 +1,7 @@
 {
   "name": "resilient-telemetry-platform",
   "version-string": "0.1.0-dev",
-  "builtin-baseline": "92417abc362ef576257a936cb7e6c222e0c465c3",
+  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
   "dependencies": [
     "benchmark",
     "cnats",
